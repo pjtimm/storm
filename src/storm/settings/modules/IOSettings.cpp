@@ -59,6 +59,7 @@ const std::string IOSettings::qvbsInputOptionName = "qvbs";
 const std::string IOSettings::qvbsInputOptionShortName = "qvbs";
 const std::string IOSettings::qvbsRootOptionName = "qvbsroot";
 const std::string IOSettings::propertiesAsMultiOptionName = "propsasmulti";
+const std::string IOSettings::distributionalOptionName = "distributional";
 
 const std::string IOSettings::uncertaintyResolutionModeName = "uncertainty-resolution";
 
@@ -279,6 +280,9 @@ IOSettings::IOSettings() : ModuleSettings(moduleName) {
     this->addOption(storm::settings::OptionBuilder(moduleName, propertiesAsMultiOptionName, false,
                                                    "If set, the selected properties are interpreted as a multi-objective formula.")
                         .setIsAdvanced()
+                        .build());
+    this->addOption(storm::settings::OptionBuilder(moduleName, distributionalOptionName, false,
+                                                   "Use distributional model checking for supported reward reachability queries.")
                         .build());
 
     std::vector<std::string> uncertaintyResolutionModes = {"minimize", "maximize", "robust", "cooperative", "min", "max"};
@@ -576,6 +580,10 @@ std::string IOSettings::getQvbsRoot() const {
 
 bool IOSettings::isPropertiesAsMultiSet() const {
     return this->getOption(propertiesAsMultiOptionName).getHasOptionBeenSet();
+}
+
+bool IOSettings::isDistributionalSet() const {
+    return this->getOption(distributionalOptionName).getHasOptionBeenSet();
 }
 
 UncertaintyResolutionModeSetting IOSettings::getUncertaintyResolutionMode() const {

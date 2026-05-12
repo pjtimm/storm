@@ -20,6 +20,7 @@
 #include "storm/settings/modules/CoreSettings.h"
 #include "storm/settings/modules/CuddSettings.h"
 #include "storm/settings/modules/DebugSettings.h"
+#include "storm/settings/modules/DistributionalSettings.h"
 #include "storm/settings/modules/EigenEquationSolverSettings.h"
 #include "storm/settings/modules/EliminationSettings.h"
 #include "storm/settings/modules/ExplorationSettings.h"
@@ -705,6 +706,7 @@ void initializeAll(std::string const& name, std::string const& executableName) {
     storm::settings::addModule<storm::settings::modules::ResourceSettings>();
     storm::settings::addModule<storm::settings::modules::AbstractionSettings>();
     storm::settings::addModule<storm::settings::modules::MultiObjectiveSettings>();
+    storm::settings::addModule<storm::settings::modules::DistributionalSettings>();
     storm::settings::addModule<storm::settings::modules::MultiplierSettings>();
     storm::settings::addModule<storm::settings::modules::TransformationSettings>();
     storm::settings::addModule<storm::settings::modules::HintSettings>();

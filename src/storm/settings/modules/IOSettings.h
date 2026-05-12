@@ -413,6 +413,11 @@ class IOSettings : public ModuleSettings {
     bool isPropertiesAsMultiSet() const;
 
     /*!
+     * Retrieves whether distributional model checking should be used for supported queries.
+     */
+    bool isDistributionalSet() const;
+
+    /*!
      * Retrieves the mode deciding how the uncertainty should be resolved.
      *
      * @return The nature resolution mode
@@ -470,6 +475,7 @@ class IOSettings : public ModuleSettings {
     static const std::string qvbsInputOptionShortName;
     static const std::string qvbsRootOptionName;
     static const std::string propertiesAsMultiOptionName;
+    static const std::string distributionalOptionName;
     static const std::string uncertaintyResolutionModeName;
 };
 

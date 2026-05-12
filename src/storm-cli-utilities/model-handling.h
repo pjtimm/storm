@@ -427,12 +427,24 @@ inline std::pair<SymbolicInput, ModelProcessingInformation> preprocessSymbolicIn
     SymbolicInput output = input;
 
     // Preprocess properties (if requested)
+    STORM_LOG_THROW(!(ioSettings.isPropertiesAsMultiSet() && ioSettings.isDistributionalSet()), storm::exceptions::InvalidArgumentException,
+                    "Options '--propsasmulti' and '--distributional' can not be combined.");
+
     if (ioSettings.isPropertiesAsMultiSet()) {
         STORM_LOG_THROW(!input.properties.empty(), storm::exceptions::InvalidArgumentException,
                         "Can not translate properties to multi-objective formula because no properties were specified.");
         // If we come from storm-pars, the following fails as multiObjectiveSettings are not loaded
         auto multiObjSettings = storm::settings::getModule<storm::settings::modules::MultiObjectiveSettings>();
         output.properties = {storm::api::createMultiObjectiveProperty(output.properties, multiObjSettings.isLexicographicModelCheckingSet())};
+    }
+
+    if (ioSettings.isDistributionalSet()) {
+        STORM_LOG_THROW(!input.properties.empty(), storm::exceptions::InvalidArgumentException,
+                        "Can not use distributional model checking because no properties were specified.");
+        STORM_LOG_THROW(output.properties.size() == 1, storm::exceptions::InvalidArgumentException,
+                        "The '--distributional' option currently requires exactly one selected property.");
+        STORM_LOG_THROW(false, storm::exceptions::NotImplementedException,
+                        "The '--distributional' option is parsed but distributional formula wrapping is not implemented yet.");
     }
 
     // Substitute constant definitions in symbolic input.
