@@ -44,6 +44,7 @@ class LiftableTransitionRewardsVisitor : public FormulaVisitor {
     virtual boost::any visit(HOAPathFormula const& f, boost::any const& data) const override;
     virtual boost::any visit(DiscountedCumulativeRewardFormula const& f, boost::any const& data) const override;
     virtual boost::any visit(DiscountedTotalRewardFormula const& f, boost::any const& data) const override;
+    virtual boost::any visit(DistributionalFormula const& f, boost::any const& data) const override;
 
    private:
     storm::storage::SymbolicModelDescription const& symbolicModelDescription;

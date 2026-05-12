@@ -6,6 +6,7 @@
 #include "storm/storage/jani/Property.h"
 #include "storm/storage/prism/Program.h"
 
+#include "storm/logic/DistributionalFormula.h"
 #include "storm/logic/Formula.h"
 
 #include "storm/utility/cli.h"
@@ -84,6 +85,13 @@ storm::jani::Property createMultiObjectiveProperty(std::vector<storm::jani::Prop
         extractFormulasFromProperties(properties),
         lexicographic ? storm::logic::MultiObjectiveFormula::Type::Lexicographic : storm::logic::MultiObjectiveFormula::Type::Tradeoff);
     return storm::jani::Property(name, multiFormula, undefConstants, comment);
+}
+
+storm::jani::Property createDistributionalProperty(storm::jani::Property const& property) {
+    STORM_LOG_WARN_COND(property.getFilter().isDefault(),
+                        "Non-default property filter of property " + property.getName() + " will be dropped during conversion to distributional property.");
+    auto formula = std::make_shared<storm::logic::DistributionalFormula>(property.getRawFormula());
+    return storm::jani::Property(property.getName(), formula, property.getUndefinedConstants(), property.getComment());
 }
 }  // namespace api
 }  // namespace storm

@@ -33,6 +33,10 @@ bool Formula::isQuantileFormula() const {
     return false;
 }
 
+bool Formula::isDistributionalFormula() const {
+    return false;
+}
+
 bool Formula::isBinaryStateFormula() const {
     return false;
 }
@@ -248,6 +252,14 @@ QuantileFormula& Formula::asQuantileFormula() {
 
 QuantileFormula const& Formula::asQuantileFormula() const {
     return dynamic_cast<QuantileFormula const&>(*this);
+}
+
+DistributionalFormula& Formula::asDistributionalFormula() {
+    return dynamic_cast<DistributionalFormula&>(*this);
+}
+
+DistributionalFormula const& Formula::asDistributionalFormula() const {
+    return dynamic_cast<DistributionalFormula const&>(*this);
 }
 
 BinaryStateFormula& Formula::asBinaryStateFormula() {

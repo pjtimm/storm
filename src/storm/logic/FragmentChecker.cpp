@@ -257,6 +257,10 @@ boost::any FragmentChecker::visit(QuantileFormula const& f, boost::any const& da
     return f.getSubformula().accept(*this, data);
 }
 
+boost::any FragmentChecker::visit(DistributionalFormula const& f, boost::any const& data) const {
+    return f.getSubformula().accept(*this, data);
+}
+
 boost::any FragmentChecker::visit(NextFormula const& f, boost::any const& data) const {
     InheritedInformation const& inherited = boost::any_cast<InheritedInformation const&>(data);
     bool result = inherited.getSpecification().areNextFormulasAllowed();

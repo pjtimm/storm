@@ -140,6 +140,14 @@ boost::any FormulaInformationVisitor::visit(QuantileFormula const& f, boost::any
     }
 }
 
+boost::any FormulaInformationVisitor::visit(DistributionalFormula const& f, boost::any const& data) const {
+    if (recurseIntoOperators) {
+        return f.getSubformula().accept(*this, data);
+    } else {
+        return FormulaInformation();
+    }
+}
+
 boost::any FormulaInformationVisitor::visit(NextFormula const& f, boost::any const& data) const {
     FormulaInformation result = boost::any_cast<FormulaInformation>(f.getSubformula().accept(*this, data)).setContainsNextFormula();
     if (f.getSubformula().isPathFormula()) {

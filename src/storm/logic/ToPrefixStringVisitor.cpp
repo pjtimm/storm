@@ -147,6 +147,10 @@ boost::any ToPrefixStringVisitor::visit(QuantileFormula const&, boost::any const
     STORM_LOG_THROW(false, storm::exceptions::InvalidOperationException, "Can not convert to prefix string");
 }
 
+boost::any ToPrefixStringVisitor::visit(DistributionalFormula const&, boost::any const&) const {
+    STORM_LOG_THROW(false, storm::exceptions::InvalidOperationException, "Can not convert to prefix string");
+}
+
 boost::any ToPrefixStringVisitor::visit(NextFormula const& f, boost::any const& data) const {
     std::string subexpression = boost::any_cast<std::string>(f.getSubformula().accept(*this, data));
     return std::string("X ") + subexpression;

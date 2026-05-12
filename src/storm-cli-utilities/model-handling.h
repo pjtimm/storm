@@ -443,8 +443,7 @@ inline std::pair<SymbolicInput, ModelProcessingInformation> preprocessSymbolicIn
                         "Can not use distributional model checking because no properties were specified.");
         STORM_LOG_THROW(output.properties.size() == 1, storm::exceptions::InvalidArgumentException,
                         "The '--distributional' option currently requires exactly one selected property.");
-        STORM_LOG_THROW(false, storm::exceptions::NotImplementedException,
-                        "The '--distributional' option is parsed but distributional formula wrapping is not implemented yet.");
+        output.properties = {storm::api::createDistributionalProperty(output.properties.front())};
     }
 
     // Substitute constant definitions in symbolic input.

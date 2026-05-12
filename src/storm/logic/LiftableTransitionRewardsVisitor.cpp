@@ -112,6 +112,10 @@ boost::any LiftableTransitionRewardsVisitor::visit(QuantileFormula const& f, boo
     return f.getSubformula().accept(*this, data);
 }
 
+boost::any LiftableTransitionRewardsVisitor::visit(DistributionalFormula const& f, boost::any const& data) const {
+    return f.getSubformula().accept(*this, data);
+}
+
 boost::any LiftableTransitionRewardsVisitor::visit(NextFormula const& f, boost::any const& data) const {
     return boost::any_cast<bool>(f.getSubformula().accept(*this, data));
 }

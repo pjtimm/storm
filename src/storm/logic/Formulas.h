@@ -13,6 +13,7 @@
 #include "storm/logic/CumulativeRewardFormula.h"
 #include "storm/logic/DiscountedCumulativeRewardFormula.h"
 #include "storm/logic/DiscountedTotalRewardFormula.h"
+#include "storm/logic/DistributionalFormula.h"
 #include "storm/logic/EventuallyFormula.h"
 #include "storm/logic/Formula.h"
 #include "storm/logic/GameFormula.h"

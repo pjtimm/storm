@@ -298,6 +298,9 @@ std::unique_ptr<CheckResult> AbstractModelChecker<ModelType>::checkStateFormula(
         }
     } else if (stateFormula.isQuantileFormula()) {
         return this->checkQuantileFormula(env, checkTask.substituteFormula(stateFormula.asQuantileFormula()));
+    } else if (stateFormula.isDistributionalFormula()) {
+        STORM_LOG_THROW(false, storm::exceptions::NotImplementedException,
+                        "This model checker (" << getClassName() << ") does not support distributional model checking yet: " << checkTask.getFormula() << ".");
     }
     STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "The given formula '" << stateFormula << "' is invalid.");
 }

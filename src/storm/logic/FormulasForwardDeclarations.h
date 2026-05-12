@@ -24,6 +24,7 @@ class LongRunAverageOperatorFormula;
 class LongRunAverageRewardFormula;
 class MultiObjectiveFormula;
 class QuantileFormula;
+class DistributionalFormula;
 class NextFormula;
 class OperatorFormula;
 struct OperatorInformation;
