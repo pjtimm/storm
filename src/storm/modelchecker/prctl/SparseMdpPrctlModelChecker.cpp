@@ -6,6 +6,7 @@
 #include "storm/exceptions/InvalidPropertyException.h"
 #include "storm/exceptions/NotImplementedException.h"
 #include "storm/logic/FragmentSpecification.h"
+#include "storm/modelchecker/distributional/DistributionalReachabilityPreprocessor.h"
 #include "storm/modelchecker/helper/conditional/ConditionalHelper.h"
 #include "storm/modelchecker/helper/finitehorizon/SparseNondeterministicStepBoundedHorizonHelper.h"
 #include "storm/modelchecker/helper/infinitehorizon/SparseNondeterministicInfiniteHorizonHelper.h"
@@ -37,6 +38,9 @@ template<typename SparseMdpModelType>
 bool SparseMdpPrctlModelChecker<SparseMdpModelType>::canHandleStatic(CheckTask<storm::logic::Formula, SolutionType> const& checkTask,
                                                                      bool* requiresSingleInitialState) {
     storm::logic::Formula const& formula = checkTask.getFormula();
+    if (formula.isDistributionalFormula()) {
+        return true;
+    }
     if constexpr (storm::IsIntervalType<ValueType>) {
         if (formula.isInFragment(storm::logic::propositional())) {
             return true;
@@ -542,6 +546,15 @@ std::unique_ptr<CheckResult> SparseMdpPrctlModelChecker<SparseMdpModelType>::che
             return std::unique_ptr<CheckResult>(new ExplicitParetoCurveCheckResult<SolutionType>(initialState, std::move(res)));
         }
     }
+}
+
+template<typename SparseMdpModelType>
+std::unique_ptr<CheckResult> SparseMdpPrctlModelChecker<SparseMdpModelType>::checkDistributionalFormula(
+    Environment const&, CheckTask<storm::logic::DistributionalFormula, SolutionType> const& checkTask) {
+    auto preprocessingResult =
+        storm::modelchecker::distributional::DistributionalReachabilityPreprocessor<SparseMdpModelType>::preprocess(this->getModel(), checkTask.getFormula());
+    STORM_LOG_THROW(false, storm::exceptions::NotImplementedException,
+                    "Distributional value iteration is not implemented yet for reward model '" << preprocessingResult.rewardModelName << "'.");
 }
 
 template class SparseMdpPrctlModelChecker<storm::models::sparse::Mdp<double>>;
