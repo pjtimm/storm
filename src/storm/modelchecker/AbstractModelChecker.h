@@ -141,6 +141,10 @@ class AbstractModelChecker {
     // The methods to check quantile formulas.
     virtual std::unique_ptr<CheckResult> checkQuantileFormula(Environment const& env, CheckTask<storm::logic::QuantileFormula, SolutionType> const& checkTask);
 
+    // The methods to check distributional formulas.
+    virtual std::unique_ptr<CheckResult> checkDistributionalFormula(Environment const& env,
+                                                                    CheckTask<storm::logic::DistributionalFormula, SolutionType> const& checkTask);
+
     // The methods to check lexicographic LTL formulae
     virtual std::unique_ptr<CheckResult> checkLexObjectiveFormula(Environment const& env,
                                                                   CheckTask<storm::logic::MultiObjectiveFormula, SolutionType> const& checkTask);

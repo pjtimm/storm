@@ -10,6 +10,7 @@
 #include "storm/exceptions/InternalTypeErrorException.h"
 #include "storm/exceptions/InvalidArgumentException.h"
 #include "storm/exceptions/InvalidOperationException.h"
+#include "storm/exceptions/InvalidPropertyException.h"
 #include "storm/exceptions/NotImplementedException.h"
 #include "storm/logic/FormulaInformation.h"
 #include "storm/modelchecker/results/ExplicitQuantitativeCheckResult.h"
@@ -299,8 +300,7 @@ std::unique_ptr<CheckResult> AbstractModelChecker<ModelType>::checkStateFormula(
     } else if (stateFormula.isQuantileFormula()) {
         return this->checkQuantileFormula(env, checkTask.substituteFormula(stateFormula.asQuantileFormula()));
     } else if (stateFormula.isDistributionalFormula()) {
-        STORM_LOG_THROW(false, storm::exceptions::NotImplementedException,
-                        "This model checker (" << getClassName() << ") does not support distributional model checking yet: " << checkTask.getFormula() << ".");
+        return this->checkDistributionalFormula(env, checkTask.substituteFormula(stateFormula.asDistributionalFormula()));
     }
     STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "The given formula '" << stateFormula << "' is invalid.");
 }
@@ -452,6 +452,31 @@ std::unique_ptr<CheckResult> AbstractModelChecker<ModelType>::checkQuantileFormu
                                                                                    CheckTask<storm::logic::QuantileFormula, SolutionType> const& checkTask) {
     STORM_LOG_THROW(false, storm::exceptions::NotImplementedException,
                     "This model checker (" << getClassName() << ") does not support the formula: " << checkTask.getFormula() << ".");
+}
+
+template<typename ModelType>
+std::unique_ptr<CheckResult> AbstractModelChecker<ModelType>::checkDistributionalFormula(
+    Environment const&, CheckTask<storm::logic::DistributionalFormula, SolutionType> const& checkTask) {
+    storm::logic::DistributionalFormula const& distributionalFormula = checkTask.getFormula();
+    storm::logic::Formula const& subformula = distributionalFormula.getSubformula();
+
+    STORM_LOG_THROW(subformula.isRewardOperatorFormula(), storm::exceptions::InvalidPropertyException,
+                    "Distributional model checking currently requires a reward operator formula, but got '" << subformula << "'.");
+
+    storm::logic::RewardOperatorFormula const& rewardOperatorFormula = subformula.asRewardOperatorFormula();
+    STORM_LOG_THROW(rewardOperatorFormula.hasQuantitativeResult(), storm::exceptions::InvalidPropertyException,
+                    "Distributional model checking currently requires a quantitative reward query without a comparison bound.");
+    STORM_LOG_THROW(
+        rewardOperatorFormula.getSubformula().isReachabilityRewardFormula(), storm::exceptions::InvalidPropertyException,
+        "Distributional model checking currently requires a reachability reward formula, but got '" << rewardOperatorFormula.getSubformula() << "'.");
+
+    storm::logic::EventuallyFormula const& reachabilityRewardFormula = rewardOperatorFormula.getSubformula().asReachabilityRewardFormula();
+    STORM_LOG_THROW(reachabilityRewardFormula.getSubformula().isStateFormula(), storm::exceptions::InvalidPropertyException,
+                    "Distributional model checking currently requires a state target formula.");
+
+    STORM_LOG_THROW(false, storm::exceptions::NotImplementedException,
+                    "This model checker (" << getClassName()
+                                           << ") does not support distributional reward reachability model checking yet: " << checkTask.getFormula() << ".");
 }
 
 template<typename ModelType>
