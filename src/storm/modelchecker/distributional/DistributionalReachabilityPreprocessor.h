@@ -11,6 +11,8 @@
 #include "storm/modelchecker/propositional/SparsePropositionalModelChecker.h"
 #include "storm/modelchecker/results/ExplicitQualitativeCheckResult.h"
 #include "storm/storage/BitVector.h"
+#include "storm/storage/StronglyConnectedComponentDecomposition.h"
+#include "storm/utility/constants.h"
 #include "storm/utility/macros.h"
 
 namespace storm {
@@ -21,12 +23,14 @@ namespace distributional {
 
 template<class SparseMdpModelType>
 struct DistributionalReachabilityPreprocessorResult {
+    using ValueType = typename SparseMdpModelType::ValueType;
     using RewardModelType = typename SparseMdpModelType::RewardModelType;
 
     std::string rewardModelName;
     RewardModelType const* rewardModel;
     std::shared_ptr<storm::logic::Formula const> targetFormula;
     storm::storage::BitVector targetStates;
+    std::vector<ValueType> stateActionRewards;
 };
 
 template<class SparseMdpModelType>
@@ -47,11 +51,55 @@ class DistributionalReachabilityPreprocessor {
         auto const& rewardModel = model.getRewardModel(rewardModelName);
         STORM_LOG_THROW(!rewardModel.hasTransitionRewards(), storm::exceptions::NotSupportedException,
                         "Distributional model checking does not support transition rewards yet.");
+        std::vector<ValueType> stateActionRewards = rewardModel.getTotalRewardVector(model.getTransitionMatrix());
+        validateStateActionRewards(stateActionRewards);
+        validatePositiveRewardsAreAcyclic(model, targetStates, stateActionRewards);
 
-        return Result{rewardModelName, &rewardModel, query.targetFormula.asSharedPointer(), std::move(targetStates)};
+        return Result{rewardModelName, &rewardModel, query.targetFormula.asSharedPointer(), std::move(targetStates), std::move(stateActionRewards)};
     }
 
    private:
+    static void validateStateActionRewards(std::vector<ValueType> const& stateActionRewards) {
+        for (auto const& reward : stateActionRewards) {
+            STORM_LOG_THROW(reward >= storm::utility::zero<ValueType>(), storm::exceptions::NotSupportedException,
+                            "Distributional model checking currently supports only non-negative rewards.");
+            STORM_LOG_THROW(storm::utility::isInteger(reward), storm::exceptions::NotSupportedException,
+                            "Distributional model checking currently supports only integer rewards.");
+        }
+    }
+
+    static void validatePositiveRewardsAreAcyclic(SparseMdpModelType const& model, storm::storage::BitVector const& targetStates,
+                                                  std::vector<ValueType> const& stateActionRewards) {
+        auto const& transitionMatrix = model.getTransitionMatrix();
+        storm::storage::BitVector nonTargetStates = ~targetStates;
+        storm::storage::StronglyConnectedComponentDecompositionOptions options;
+        options.subsystem(nonTargetStates);
+        storm::storage::SccDecompositionResult sccResult;
+        storm::storage::performSccDecomposition(transitionMatrix, options, sccResult);
+
+        for (uint64_t state = 0; state < model.getNumberOfStates(); ++state) {
+            if (targetStates.get(state) || !sccResult.nonTrivialStates.get(state)) {
+                continue;
+            }
+
+            auto const stateScc = sccResult.stateToSccMapping[state];
+            for (auto const choice : transitionMatrix.getRowGroupIndices(state)) {
+                if (storm::utility::isZero(stateActionRewards[choice])) {
+                    continue;
+                }
+                for (auto const& transition : transitionMatrix.getRow(choice)) {
+                    if (targetStates.get(transition.getColumn())) {
+                        continue;
+                    }
+                    if (sccResult.stateToSccMapping[transition.getColumn()] == stateScc) {
+                        STORM_LOG_THROW(false, storm::exceptions::NotSupportedException,
+                                        "Distributional model checking currently supports only DAGs or zero-cost cycles.");
+                    }
+                }
+            }
+        }
+    }
+
     static storm::storage::BitVector computeTargetStates(Environment const& env, SparseMdpModelType const& model, storm::logic::Formula const& targetFormula) {
         storm::modelchecker::SparsePropositionalModelChecker<SparseMdpModelType> modelChecker(model);
         auto targetResult = modelChecker.check(env, targetFormula);
