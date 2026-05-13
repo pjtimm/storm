@@ -13,7 +13,6 @@
 #include "storm/modelchecker/results/ExplicitQualitativeCheckResult.h"
 #include "storm/storage/BitVector.h"
 #include "storm/storage/SparseMatrix.h"
-#include "storm/storage/StronglyConnectedComponentDecomposition.h"
 #include "storm/utility/constants.h"
 #include "storm/utility/graph.h"
 #include "storm/utility/macros.h"
@@ -60,7 +59,7 @@ class DistributionalReachabilityPreprocessor {
         clearTargetStateActionRewards(targetAbsorbingTransitionMatrix, targetStates, stateActionRewards);
         validateStateActionRewards(stateActionRewards);
         validateAlmostSureTargetReachability(model, targetAbsorbingTransitionMatrix, targetStates);
-        validatePositiveRewardsAreAcyclic(targetAbsorbingTransitionMatrix, targetStates, stateActionRewards);
+        validateNonTargetGraphIsAcyclic(targetAbsorbingTransitionMatrix, targetStates);
 
         return Result{rewardModelName, &rewardModel, query.targetFormula.asSharedPointer(), std::move(targetStates), std::move(targetAbsorbingTransitionMatrix),
                       std::move(stateActionRewards)};
@@ -101,35 +100,10 @@ class DistributionalReachabilityPreprocessor {
                         "Distributional model checking currently requires every state to reach the target almost surely under all schedulers.");
     }
 
-    static void validatePositiveRewardsAreAcyclic(storm::storage::SparseMatrix<ValueType> const& transitionMatrix, storm::storage::BitVector const& targetStates,
-                                                  std::vector<ValueType> const& stateActionRewards) {
+    static void validateNonTargetGraphIsAcyclic(storm::storage::SparseMatrix<ValueType> const& transitionMatrix, storm::storage::BitVector const& targetStates) {
         storm::storage::BitVector nonTargetStates = ~targetStates;
-        storm::storage::StronglyConnectedComponentDecompositionOptions options;
-        options.subsystem(nonTargetStates);
-        storm::storage::SccDecompositionResult sccResult;
-        storm::storage::performSccDecomposition(transitionMatrix, options, sccResult);
-
-        for (uint64_t state = 0; state < transitionMatrix.getRowGroupCount(); ++state) {
-            if (targetStates.get(state) || !sccResult.nonTrivialStates.get(state)) {
-                continue;
-            }
-
-            auto const stateScc = sccResult.stateToSccMapping[state];
-            for (auto const choice : transitionMatrix.getRowGroupIndices(state)) {
-                if (storm::utility::isZero(stateActionRewards[choice])) {
-                    continue;
-                }
-                for (auto const& transition : transitionMatrix.getRow(choice)) {
-                    if (targetStates.get(transition.getColumn())) {
-                        continue;
-                    }
-                    if (sccResult.stateToSccMapping[transition.getColumn()] == stateScc) {
-                        STORM_LOG_THROW(false, storm::exceptions::NotSupportedException,
-                                        "Distributional model checking currently supports only DAGs or zero-cost cycles.");
-                    }
-                }
-            }
-        }
+        STORM_LOG_THROW(!storm::utility::graph::hasCycle(transitionMatrix, nonTargetStates), storm::exceptions::NotSupportedException,
+                        "Distributional model checking currently requires the non-target graph to be acyclic.");
     }
 
     static storm::storage::BitVector computeTargetStates(Environment const& env, SparseMdpModelType const& model, storm::logic::Formula const& targetFormula) {
