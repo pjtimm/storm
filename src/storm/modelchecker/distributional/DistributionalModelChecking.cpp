@@ -3,9 +3,9 @@
 #include "storm/adapters/RationalNumberAdapter.h"
 #include "storm/exceptions/NotImplementedException.h"
 #include "storm/modelchecker/distributional/DistributionalReachabilityPreprocessor.h"
+#include "storm/modelchecker/distributional/DistributionalRewardReachabilityQuery.h"
 #include "storm/modelchecker/results/CheckResult.h"
 #include "storm/models/sparse/Mdp.h"
-#include "storm/utility/Stopwatch.h"
 #include "storm/utility/macros.h"
 
 namespace storm {
@@ -15,7 +15,8 @@ namespace distributional {
 template<typename SparseModelType>
 std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment const& env, SparseModelType const& model,
                                                                 storm::logic::DistributionalFormula const& formula, bool produceScheduler) {
-    auto preprocessorResult = DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, formula, produceScheduler);
+    auto query = parseDistributionalRewardReachabilityQuery(formula);
+    auto preprocessorResult = DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, produceScheduler);
 
     STORM_LOG_THROW(false, storm::exceptions::NotImplementedException,
                     "Distributional value iteration is not implemented yet for reward model '" << preprocessorResult.rewardModelName << "'.");

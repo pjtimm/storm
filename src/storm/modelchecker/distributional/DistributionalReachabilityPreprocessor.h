@@ -7,6 +7,7 @@
 #include "storm/exceptions/InvalidPropertyException.h"
 #include "storm/exceptions/NotSupportedException.h"
 #include "storm/logic/Formulas.h"
+#include "storm/modelchecker/distributional/DistributionalRewardReachabilityQuery.h"
 #include "storm/modelchecker/propositional/SparsePropositionalModelChecker.h"
 #include "storm/modelchecker/results/ExplicitQualitativeCheckResult.h"
 #include "storm/storage/BitVector.h"
@@ -35,9 +36,8 @@ class DistributionalReachabilityPreprocessor {
     using SolutionType = storm::IntervalBaseType<ValueType>;
     using Result = DistributionalReachabilityPreprocessorResult<SparseMdpModelType>;
 
-    static Result preprocess(Environment const& env, SparseMdpModelType const& model, storm::logic::DistributionalFormula const& formula,
+    static Result preprocess(Environment const& env, SparseMdpModelType const& model, DistributionalRewardReachabilityQuery const& query,
                              bool /*produceScheduler*/) {
-        Query query = parseQuery(formula);
         storm::storage::BitVector targetStates = computeTargetStates(env, model, query.targetFormula);
         STORM_LOG_THROW(!targetStates.empty(), storm::exceptions::InvalidPropertyException, "Distributional model checking requires a non-empty target set.");
         STORM_LOG_THROW(targetStates.size() == model.getNumberOfStates(), storm::exceptions::InvalidPropertyException,
@@ -52,30 +52,6 @@ class DistributionalReachabilityPreprocessor {
     }
 
    private:
-    struct Query {
-        storm::logic::RewardOperatorFormula const& rewardOperatorFormula;
-        storm::logic::EventuallyFormula const& reachabilityRewardFormula;
-        storm::logic::Formula const& targetFormula;
-    };
-
-    static Query parseQuery(storm::logic::DistributionalFormula const& formula) {
-        storm::logic::Formula const& subformula = formula.getSubformula();
-        STORM_LOG_THROW(subformula.isRewardOperatorFormula(), storm::exceptions::InvalidPropertyException,
-                        "Distributional model checking currently requires a reward operator formula, but got '" << subformula << "'.");
-
-        storm::logic::RewardOperatorFormula const& rewardOperatorFormula = subformula.asRewardOperatorFormula();
-        STORM_LOG_THROW(rewardOperatorFormula.hasQuantitativeResult(), storm::exceptions::InvalidPropertyException,
-                        "Distributional model checking currently requires a quantitative reward query without a comparison bound.");
-        STORM_LOG_THROW(
-            rewardOperatorFormula.getSubformula().isReachabilityRewardFormula(), storm::exceptions::InvalidPropertyException,
-            "Distributional model checking currently requires a reachability reward formula, but got '" << rewardOperatorFormula.getSubformula() << "'.");
-
-        storm::logic::EventuallyFormula const& reachabilityRewardFormula = rewardOperatorFormula.getSubformula().asReachabilityRewardFormula();
-        STORM_LOG_THROW(reachabilityRewardFormula.getSubformula().isStateFormula(), storm::exceptions::InvalidPropertyException,
-                        "Distributional model checking currently requires a state target formula.");
-        return Query{rewardOperatorFormula, reachabilityRewardFormula, reachabilityRewardFormula.getSubformula()};
-    }
-
     static storm::storage::BitVector computeTargetStates(Environment const& env, SparseMdpModelType const& model, storm::logic::Formula const& targetFormula) {
         storm::modelchecker::SparsePropositionalModelChecker<SparseMdpModelType> modelChecker(model);
         auto targetResult = modelChecker.check(env, targetFormula);
