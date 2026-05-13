@@ -15,6 +15,7 @@
 #include "storm/storage/SparseMatrix.h"
 #include "storm/storage/StronglyConnectedComponentDecomposition.h"
 #include "storm/utility/constants.h"
+#include "storm/utility/graph.h"
 #include "storm/utility/macros.h"
 
 namespace storm {
@@ -58,6 +59,7 @@ class DistributionalReachabilityPreprocessor {
         std::vector<ValueType> stateActionRewards = rewardModel.getTotalRewardVector(targetAbsorbingTransitionMatrix);
         clearTargetStateActionRewards(targetAbsorbingTransitionMatrix, targetStates, stateActionRewards);
         validateStateActionRewards(stateActionRewards);
+        validateAlmostSureTargetReachability(model, targetAbsorbingTransitionMatrix, targetStates);
         validatePositiveRewardsAreAcyclic(targetAbsorbingTransitionMatrix, targetStates, stateActionRewards);
 
         return Result{rewardModelName, &rewardModel, query.targetFormula.asSharedPointer(), std::move(targetStates), std::move(targetAbsorbingTransitionMatrix),
@@ -87,6 +89,16 @@ class DistributionalReachabilityPreprocessor {
             STORM_LOG_THROW(storm::utility::isInteger(reward), storm::exceptions::NotSupportedException,
                             "Distributional model checking currently supports only integer rewards.");
         }
+    }
+
+    static void validateAlmostSureTargetReachability(SparseMdpModelType const& model, storm::storage::SparseMatrix<ValueType> const& transitionMatrix,
+                                                     storm::storage::BitVector const& targetStates) {
+        storm::storage::BitVector allStates(model.getNumberOfStates(), true);
+        storm::storage::SparseMatrix<ValueType> backwardTransitions = transitionMatrix.transpose(true);
+        storm::storage::BitVector prob1TargetStates =
+            storm::utility::graph::performProb1A(transitionMatrix, model.getNondeterministicChoiceIndices(), backwardTransitions, allStates, targetStates);
+        STORM_LOG_THROW(prob1TargetStates.full(), storm::exceptions::NotSupportedException,
+                        "Distributional model checking currently requires every state to reach the target almost surely under all schedulers.");
     }
 
     static void validatePositiveRewardsAreAcyclic(storm::storage::SparseMatrix<ValueType> const& transitionMatrix, storm::storage::BitVector const& targetStates,
