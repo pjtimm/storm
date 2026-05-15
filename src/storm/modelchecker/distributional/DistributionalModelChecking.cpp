@@ -4,6 +4,7 @@
 #include "storm/exceptions/NotImplementedException.h"
 #include "storm/modelchecker/distributional/DistributionalReachabilityPreprocessor.h"
 #include "storm/modelchecker/distributional/DistributionalRewardReachabilityQuery.h"
+#include "storm/modelchecker/distributional/RewardDistribution.h"
 #include "storm/modelchecker/results/CheckResult.h"
 #include "storm/models/sparse/Mdp.h"
 #include "storm/utility/macros.h"

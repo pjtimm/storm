@@ -32,6 +32,7 @@ struct DistributionalReachabilityPreprocessorResult {
     RewardModelType const* rewardModel;
     std::shared_ptr<storm::logic::Formula const> targetFormula;
     storm::storage::BitVector targetStates;
+    storm::storage::BitVector properStates;
     storm::storage::SparseMatrix<ValueType> targetAbsorbingTransitionMatrix;
     std::vector<ValueType> stateActionRewards;
 };
@@ -58,10 +59,14 @@ class DistributionalReachabilityPreprocessor {
         std::vector<ValueType> stateActionRewards = rewardModel.getTotalRewardVector(targetAbsorbingTransitionMatrix);
         clearTargetStateActionRewards(targetAbsorbingTransitionMatrix, targetStates, stateActionRewards);
         validateStateActionRewards(stateActionRewards);
-        validateAlmostSureTargetReachability(model, targetAbsorbingTransitionMatrix, targetStates);
-        validateNonTargetGraphIsAcyclic(targetAbsorbingTransitionMatrix, targetStates);
+        storm::storage::BitVector properStates = computeProperStates(model, targetAbsorbingTransitionMatrix, targetStates);
 
-        return Result{rewardModelName, &rewardModel, query.targetFormula.asSharedPointer(), std::move(targetStates), std::move(targetAbsorbingTransitionMatrix),
+        return Result{rewardModelName,
+                      &rewardModel,
+                      query.targetFormula.asSharedPointer(),
+                      std::move(targetStates),
+                      std::move(properStates),
+                      std::move(targetAbsorbingTransitionMatrix),
                       std::move(stateActionRewards)};
     }
 
@@ -90,20 +95,11 @@ class DistributionalReachabilityPreprocessor {
         }
     }
 
-    static void validateAlmostSureTargetReachability(SparseMdpModelType const& model, storm::storage::SparseMatrix<ValueType> const& transitionMatrix,
-                                                     storm::storage::BitVector const& targetStates) {
+    static storm::storage::BitVector computeProperStates(SparseMdpModelType const& model, storm::storage::SparseMatrix<ValueType> const& transitionMatrix,
+                                                         storm::storage::BitVector const& targetStates) {
         storm::storage::BitVector allStates(model.getNumberOfStates(), true);
         storm::storage::SparseMatrix<ValueType> backwardTransitions = transitionMatrix.transpose(true);
-        storm::storage::BitVector prob1TargetStates =
-            storm::utility::graph::performProb1A(transitionMatrix, model.getNondeterministicChoiceIndices(), backwardTransitions, allStates, targetStates);
-        STORM_LOG_THROW(prob1TargetStates.full(), storm::exceptions::NotSupportedException,
-                        "Distributional model checking currently requires every state to reach the target almost surely under all schedulers.");
-    }
-
-    static void validateNonTargetGraphIsAcyclic(storm::storage::SparseMatrix<ValueType> const& transitionMatrix, storm::storage::BitVector const& targetStates) {
-        storm::storage::BitVector nonTargetStates = ~targetStates;
-        STORM_LOG_THROW(!storm::utility::graph::hasCycle(transitionMatrix, nonTargetStates), storm::exceptions::NotSupportedException,
-                        "Distributional model checking currently requires the non-target graph to be acyclic.");
+        return storm::utility::graph::performProb1E(transitionMatrix, model.getNondeterministicChoiceIndices(), backwardTransitions, allStates, targetStates);
     }
 
     static storm::storage::BitVector computeTargetStates(Environment const& env, SparseMdpModelType const& model, storm::logic::Formula const& targetFormula) {

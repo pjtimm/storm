@@ -24,7 +24,7 @@ DistributionalSettings::DistributionalSettings() : ModuleSettings(moduleName) {
     std::vector<std::string> representations = {"auto", "exact", "categorical", "quantile"};
     this->addOption(storm::settings::OptionBuilder(moduleName, representationOptionName, true,
                                                    "The finite distribution representation used for distributional model checking. "
-                                                   "'auto' keeps exact sparse distributions while they fit into the atom budget and otherwise projects.")
+                                                   "'auto' keeps exact sparse distributions while they fit into a positive atom budget and otherwise projects.")
                         .setIsAdvanced()
                         .addArgument(storm::settings::ArgumentBuilder::createStringArgument("name", "The representation to use.")
                                          .addValidatorString(ArgumentValidatorFactory::createMultipleChoiceValidator(representations))
@@ -33,7 +33,8 @@ DistributionalSettings::DistributionalSettings() : ModuleSettings(moduleName) {
                         .build());
     this->addOption(storm::settings::OptionBuilder(moduleName, atomsOptionName, true,
                                                    "The atom budget used for finite distribution representations. For 'auto' and 'exact', zero means the "
-                                                   "full exact reward support; projected representations require a positive value.")
+                                                   "backend may use exact distributions without an explicit support-size cap; projected representations "
+                                                   "require a positive value.")
                         .setIsAdvanced()
                         .addArgument(storm::settings::ArgumentBuilder::createUnsignedIntegerArgument("count", "The number of atoms.")
                                          .addValidatorUnsignedInteger(ArgumentValidatorFactory::createUnsignedGreaterEqualValidator(0))
