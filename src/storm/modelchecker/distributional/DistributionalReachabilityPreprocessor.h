@@ -60,6 +60,7 @@ class DistributionalReachabilityPreprocessor {
         clearTargetStateActionRewards(targetAbsorbingTransitionMatrix, targetStates, stateActionRewards);
         validateStateActionRewards(stateActionRewards);
         storm::storage::BitVector properStates = computeProperStates(model, targetAbsorbingTransitionMatrix, targetStates);
+        validateInitialStatesAreProper(model, properStates);
 
         return Result{rewardModelName,
                       &rewardModel,
@@ -100,6 +101,13 @@ class DistributionalReachabilityPreprocessor {
         storm::storage::BitVector allStates(model.getNumberOfStates(), true);
         storm::storage::SparseMatrix<ValueType> backwardTransitions = transitionMatrix.transpose(true);
         return storm::utility::graph::performProb1E(transitionMatrix, model.getNondeterministicChoiceIndices(), backwardTransitions, allStates, targetStates);
+    }
+
+    static void validateInitialStatesAreProper(SparseMdpModelType const& model, storm::storage::BitVector const& properStates) {
+        STORM_LOG_THROW(model.getInitialStates().hasUniqueSetBit(), storm::exceptions::NotSupportedException,
+                        "Distributional model checking currently requires a unique initial state.");
+        STORM_LOG_THROW(model.getInitialStates().isSubsetOf(properStates), storm::exceptions::NotSupportedException,
+                        "Distributional model checking requires the initial state to admit an almost-sure target-reaching scheduler.");
     }
 
     static storm::storage::BitVector computeTargetStates(Environment const& env, SparseMdpModelType const& model, storm::logic::Formula const& targetFormula) {
