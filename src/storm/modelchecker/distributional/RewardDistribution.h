@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -20,8 +21,20 @@ namespace distributional {
 struct RewardDistributionOptions {
     using Representation = RewardDistributionRepresentation;
 
-    Representation representation = Representation::Auto;
-    uint64_t atoms = 0;
+    Representation representation = Representation::Categorical;
+    uint64_t atoms = 101;
+    uint64_t stepSize = 1;
+
+    uint64_t getCategoricalUpperRewardBound() const {
+        if (atoms == 0) {
+            return 0;
+        }
+        STORM_LOG_THROW(stepSize > 0, storm::exceptions::InvalidArgumentException,
+                        "Categorical reward distributions require a positive reward step size.");
+        STORM_LOG_THROW(atoms - 1 <= std::numeric_limits<uint64_t>::max() / stepSize, storm::exceptions::InvalidArgumentException,
+                        "Categorical reward grid upper bound exceeds the supported integer range.");
+        return (atoms - 1) * stepSize;
+    }
 };
 
 template<typename ValueType>
@@ -35,6 +48,16 @@ class RewardDistribution {
         ExactDistribution distribution;
         distribution.addProbability(reward, storm::utility::one<ValueType>());
         return RewardDistribution(std::move(distribution));
+    }
+
+    static RewardDistribution categoricalTail(RewardDistributionOptions const& options) {
+        STORM_LOG_THROW(options.representation == RewardDistributionOptions::Representation::Categorical, storm::exceptions::InvalidArgumentException,
+                        "Can only create a categorical tail distribution for categorical options.");
+        STORM_LOG_THROW(options.atoms > 0, storm::exceptions::InvalidArgumentException,
+                        "Categorical reward distributions require a positive atom count.");
+        std::vector<ValueType> masses(options.atoms, storm::utility::zero<ValueType>());
+        masses.back() = storm::utility::one<ValueType>();
+        return RewardDistribution(std::move(masses), 0, options.getCategoricalUpperRewardBound());
     }
 
     Kind getKind() const {
@@ -133,29 +156,22 @@ class RewardDistributionBuilder {
     using Distribution = RewardDistribution<ValueType>;
     using Representation = typename RewardDistributionOptions::Representation;
 
-    RewardDistributionBuilder(RewardDistributionOptions const& options, uint64_t lowerRewardBound, uint64_t upperRewardBound)
-        : options(options), lowerRewardBound(lowerRewardBound), upperRewardBound(upperRewardBound), kind(Distribution::Kind::ExactSparse) {
-        STORM_LOG_THROW(lowerRewardBound <= upperRewardBound, storm::exceptions::InvalidArgumentException,
-                        "Reward distribution bounds must be ordered.");
+    explicit RewardDistributionBuilder(RewardDistributionOptions const& options)
+        : options(options), lowerRewardBound(0), upperRewardBound(options.getCategoricalUpperRewardBound()), kind(Distribution::Kind::Categorical) {
         STORM_LOG_THROW(options.representation != Representation::Quantile, storm::exceptions::NotSupportedException,
                         "Quantile reward distributions are not implemented yet.");
-        if (options.representation == Representation::Categorical) {
-            STORM_LOG_THROW(options.atoms > 0, storm::exceptions::InvalidArgumentException,
-                            "Categorical reward distributions require a positive atom count.");
-            switchToCategorical();
-        }
+        STORM_LOG_THROW(options.representation == Representation::Categorical, storm::exceptions::InvalidArgumentException,
+                        "Only categorical reward distributions are currently supported.");
+        STORM_LOG_THROW(options.atoms > 0, storm::exceptions::InvalidArgumentException,
+                        "Categorical reward distributions require a positive atom count.");
+        STORM_LOG_THROW(options.stepSize > 0, storm::exceptions::InvalidArgumentException,
+                        "Categorical reward distributions require a positive reward step size.");
+        categoricalMasses = std::vector<ValueType>(options.atoms, storm::utility::zero<ValueType>());
     }
 
     void addScaledShifted(ValueType const& scale, Distribution const& distribution, uint64_t rewardShift) {
         if (storm::utility::isZero(scale)) {
             return;
-        }
-        if (distribution.isCategorical() && options.representation == Representation::Exact) {
-            STORM_LOG_THROW(false, storm::exceptions::NotSupportedException,
-                            "Exact reward distributions cannot consume an already projected successor distribution.");
-        }
-        if (kind == Distribution::Kind::Categorical || distribution.isCategorical()) {
-            ensureCategorical();
         }
         distribution.forEachMass([this, &scale, rewardShift](ValueType const& reward, ValueType const& mass) {
             ValueType const scaledMass = scale * mass;
@@ -163,61 +179,15 @@ class RewardDistributionBuilder {
                 return;
             }
             ValueType const shiftedReward = reward + storm::utility::convertNumber<ValueType, uint64_t>(rewardShift);
-            if (kind == Distribution::Kind::ExactSparse) {
-                exactMasses.addProbability(storm::utility::convertNumber<uint64_t, ValueType>(shiftedReward), scaledMass);
-                enforceExactBudget();
-            } else {
-                addCategoricalMass(shiftedReward, scaledMass);
-            }
+            addCategoricalMass(shiftedReward, scaledMass);
         });
     }
 
     Distribution build() && {
-        if (kind == Distribution::Kind::ExactSparse) {
-            return Distribution(std::move(exactMasses));
-        }
         return Distribution(std::move(categoricalMasses), lowerRewardBound, upperRewardBound);
     }
 
    private:
-    bool hasBoundedExactBudget() const {
-        return options.atoms > 0;
-    }
-
-    void enforceExactBudget() {
-        if (!hasBoundedExactBudget() || exactMasses.size() <= options.atoms) {
-            return;
-        }
-        if (options.representation == Representation::Exact) {
-            STORM_LOG_THROW(false, storm::exceptions::NotSupportedException,
-                            "Exact reward distribution support exceeds the configured atom budget of " << options.atoms << ".");
-        }
-        switchToCategorical();
-    }
-
-    void ensureCategorical() {
-        if (kind == Distribution::Kind::Categorical) {
-            return;
-        }
-        STORM_LOG_THROW(options.representation == Representation::Auto || options.representation == Representation::Categorical,
-                        storm::exceptions::NotSupportedException, "Cannot project reward distribution for the selected representation.");
-        STORM_LOG_THROW(options.atoms > 0, storm::exceptions::InvalidArgumentException,
-                        "Projected reward distributions require a positive atom count.");
-        switchToCategorical();
-    }
-
-    void switchToCategorical() {
-        STORM_LOG_THROW(options.atoms > 0, storm::exceptions::InvalidArgumentException,
-                        "Projected reward distributions require a positive atom count.");
-        std::vector<ValueType> projected(options.atoms, storm::utility::zero<ValueType>());
-        for (auto const& entry : exactMasses) {
-            addCategoricalMass(storm::utility::convertNumber<ValueType, uint64_t>(entry.first), entry.second, projected);
-        }
-        exactMasses = typename Distribution::ExactDistribution();
-        categoricalMasses = std::move(projected);
-        kind = Distribution::Kind::Categorical;
-    }
-
     void addCategoricalMass(ValueType const& reward, ValueType const& mass) {
         addCategoricalMass(reward, mass, categoricalMasses);
     }

@@ -11,12 +11,13 @@ namespace modules {
 
 class DistributionalSettings : public ModuleSettings {
    public:
-    enum class Representation { Auto, Exact, Categorical, Quantile };
+    enum class Representation { Categorical, Quantile };
 
     DistributionalSettings();
 
     Representation getRepresentation() const;
     uint64_t getNumberOfAtoms() const;
+    uint64_t getRewardStepSize() const;
     double getPrecision() const;
     uint64_t getMaximalIterationCount() const;
     uint64_t getNumberOfBudgetAtoms() const;
@@ -27,6 +28,7 @@ class DistributionalSettings : public ModuleSettings {
    private:
     static const std::string representationOptionName;
     static const std::string atomsOptionName;
+    static const std::string stepSizeOptionName;
     static const std::string precisionOptionName;
     static const std::string maxIterationsOptionName;
     static const std::string budgetAtomsOptionName;

@@ -2,14 +2,14 @@
 
 #include "storm/adapters/RationalNumberAdapter.h"
 #include "storm/exceptions/InvalidPropertyException.h"
-#include "storm/exceptions/NotImplementedException.h"
 #include "storm/exceptions/NotSupportedException.h"
 #include "storm/modelchecker/CheckTask.h"
 #include "storm/modelchecker/distributional/DistributionalReachabilityPreprocessor.h"
 #include "storm/modelchecker/distributional/DistributionalRewardReachabilityQuery.h"
 #include "storm/modelchecker/distributional/DistributionalValueIterationOptions.h"
-#include "storm/modelchecker/distributional/RewardDistribution.h"
+#include "storm/modelchecker/distributional/SparseMdpDistributionalValueIterationHelper.h"
 #include "storm/modelchecker/results/CheckResult.h"
+#include "storm/modelchecker/results/ExplicitQuantitativeCheckResult.h"
 #include "storm/models/sparse/Mdp.h"
 #include "storm/settings/SettingsManager.h"
 #include "storm/settings/modules/DistributionalSettings.h"
@@ -27,17 +27,20 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
                     "Distributional value iteration currently requires an explicit optimization direction.");
     STORM_LOG_THROW(storm::solver::minimize(checkTask.getOptimizationDirection()), storm::exceptions::NotSupportedException,
                     "Distributional value iteration currently supports only minimization objectives.");
+    STORM_LOG_THROW(!checkTask.isProduceSchedulersSet(), storm::exceptions::NotSupportedException,
+                    "Distributional value iteration does not support scheduler production yet.");
 
     auto query = parseDistributionalRewardReachabilityQuery(checkTask.getFormula());
     auto preprocessorResult =
         DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, checkTask.isProduceSchedulersSet());
     auto const& settings = storm::settings::getModule<storm::settings::modules::DistributionalSettings>();
     auto options = DistributionalValueIterationOptions::fromSettings(settings);
-    auto rewardDistributionOptions = options.toRewardDistributionOptions();
-    (void)rewardDistributionOptions;
 
-    STORM_LOG_THROW(false, storm::exceptions::NotImplementedException,
-                    "Distributional value iteration is not implemented yet for reward model '" << preprocessorResult.rewardModelName << "'.");
+    SparseMdpDistributionalValueIterationHelper<typename SparseModelType::ValueType> helper(
+        preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
+        preprocessorResult.properStates, options);
+    auto values = helper.computeExpectedRewards();
+    return std::make_unique<ExplicitQuantitativeCheckResult<SolutionType>>(std::move(values));
 }
 
 template std::unique_ptr<CheckResult> performDistributionalModelChecking<storm::models::sparse::Mdp<double>, double>(

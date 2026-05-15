@@ -4,7 +4,7 @@ namespace storm {
 namespace modelchecker {
 namespace distributional {
 
-enum class RewardDistributionRepresentation { Auto, Exact, Categorical, Quantile };
+enum class RewardDistributionRepresentation { Categorical, Quantile };
 
 }  // namespace distributional
 }  // namespace modelchecker

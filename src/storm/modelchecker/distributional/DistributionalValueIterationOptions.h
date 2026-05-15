@@ -17,21 +17,26 @@ struct DistributionalValueIterationOptions {
 
     Representation representation;
     uint64_t atoms;
+    uint64_t stepSize;
     double precision;
     uint64_t maximalIterations;
 
     RewardDistributionOptions toRewardDistributionOptions() const {
-        return RewardDistributionOptions{representation, atoms};
+        return RewardDistributionOptions{representation, atoms, stepSize};
     }
 
     static DistributionalValueIterationOptions fromSettings(storm::settings::modules::DistributionalSettings const& settings) {
-        DistributionalValueIterationOptions options{convertRepresentation(settings.getRepresentation()), settings.getNumberOfAtoms(), settings.getPrecision(),
-                                                    settings.getMaximalIterationCount()};
+        DistributionalValueIterationOptions options{convertRepresentation(settings.getRepresentation()), settings.getNumberOfAtoms(),
+                                                    settings.getRewardStepSize(), settings.getPrecision(), settings.getMaximalIterationCount()};
         options.validate();
         return options;
     }
 
     void validate() const {
+        STORM_LOG_THROW(atoms > 0, storm::exceptions::NotSupportedException,
+                        "Distributional value iteration requires a positive atom count.");
+        STORM_LOG_THROW(stepSize > 0, storm::exceptions::NotSupportedException,
+                        "Distributional value iteration requires a positive categorical reward step size.");
         STORM_LOG_THROW(representation != Representation::Quantile, storm::exceptions::NotSupportedException,
                         "Distributional value iteration does not support quantile reward distributions yet.");
     }
@@ -40,10 +45,6 @@ struct DistributionalValueIterationOptions {
     static Representation convertRepresentation(storm::settings::modules::DistributionalSettings::Representation representation) {
         using SettingsRepresentation = storm::settings::modules::DistributionalSettings::Representation;
         switch (representation) {
-            case SettingsRepresentation::Auto:
-                return Representation::Auto;
-            case SettingsRepresentation::Exact:
-                return Representation::Exact;
             case SettingsRepresentation::Categorical:
                 return Representation::Categorical;
             case SettingsRepresentation::Quantile:
