@@ -8,7 +8,7 @@
 
 #include "storm/exceptions/InvalidArgumentException.h"
 #include "storm/exceptions/NotSupportedException.h"
-#include "storm/settings/modules/DistributionalSettings.h"
+#include "storm/modelchecker/distributional/RewardDistributionRepresentation.h"
 #include "storm/storage/Distribution.h"
 #include "storm/utility/constants.h"
 #include "storm/utility/macros.h"
@@ -18,7 +18,7 @@ namespace modelchecker {
 namespace distributional {
 
 struct RewardDistributionOptions {
-    using Representation = storm::settings::modules::DistributionalSettings::Representation;
+    using Representation = RewardDistributionRepresentation;
 
     Representation representation = Representation::Auto;
     uint64_t atoms = 0;

@@ -39,6 +39,9 @@ bool SparseMdpPrctlModelChecker<SparseMdpModelType>::canHandleStatic(CheckTask<s
                                                                      bool* requiresSingleInitialState) {
     storm::logic::Formula const& formula = checkTask.getFormula();
     if (formula.isDistributionalFormula()) {
+        if (requiresSingleInitialState) {
+            *requiresSingleInitialState = true;
+        }
         return true;
     }
     if constexpr (storm::IsIntervalType<ValueType>) {
@@ -554,7 +557,7 @@ std::unique_ptr<CheckResult> SparseMdpPrctlModelChecker<SparseMdpModelType>::che
     if constexpr (storm::IsIntervalType<ValueType>) {
         STORM_LOG_THROW(false, storm::exceptions::NotImplementedException, "We have not yet implemented distributional model checking with intervals");
     } else {
-        return distributional::performDistributionalModelChecking(env, this->getModel(), checkTask.getFormula(), checkTask.isProduceSchedulersSet());
+        return distributional::performDistributionalModelChecking(env, this->getModel(), checkTask);
     }
 }
 

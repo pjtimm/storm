@@ -8,13 +8,15 @@ namespace storm {
 class Environment;
 
 namespace modelchecker {
+template<typename FormulaType, typename ValueType>
+class CheckTask;
 class CheckResult;
 
 namespace distributional {
 
-template<typename SparseModelType>
+template<typename SparseModelType, typename SolutionType>
 std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment const& env, SparseModelType const& model,
-                                                                storm::logic::DistributionalFormula const& formula, bool produceScheduler = false);
+                                                                CheckTask<storm::logic::DistributionalFormula, SolutionType> const& checkTask);
 
 }  // namespace distributional
 }  // namespace modelchecker

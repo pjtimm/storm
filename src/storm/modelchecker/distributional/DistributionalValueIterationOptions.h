@@ -4,6 +4,7 @@
 
 #include "storm/exceptions/NotSupportedException.h"
 #include "storm/modelchecker/distributional/RewardDistribution.h"
+#include "storm/modelchecker/distributional/RewardDistributionRepresentation.h"
 #include "storm/settings/modules/DistributionalSettings.h"
 #include "storm/utility/macros.h"
 
@@ -12,7 +13,7 @@ namespace modelchecker {
 namespace distributional {
 
 struct DistributionalValueIterationOptions {
-    using Representation = storm::settings::modules::DistributionalSettings::Representation;
+    using Representation = RewardDistributionRepresentation;
 
     Representation representation;
     uint64_t atoms;
@@ -24,7 +25,7 @@ struct DistributionalValueIterationOptions {
     }
 
     static DistributionalValueIterationOptions fromSettings(storm::settings::modules::DistributionalSettings const& settings) {
-        DistributionalValueIterationOptions options{settings.getRepresentation(), settings.getNumberOfAtoms(), settings.getPrecision(),
+        DistributionalValueIterationOptions options{convertRepresentation(settings.getRepresentation()), settings.getNumberOfAtoms(), settings.getPrecision(),
                                                     settings.getMaximalIterationCount()};
         options.validate();
         return options;
@@ -33,6 +34,22 @@ struct DistributionalValueIterationOptions {
     void validate() const {
         STORM_LOG_THROW(representation != Representation::Quantile, storm::exceptions::NotSupportedException,
                         "Distributional value iteration does not support quantile reward distributions yet.");
+    }
+
+   private:
+    static Representation convertRepresentation(storm::settings::modules::DistributionalSettings::Representation representation) {
+        using SettingsRepresentation = storm::settings::modules::DistributionalSettings::Representation;
+        switch (representation) {
+            case SettingsRepresentation::Auto:
+                return Representation::Auto;
+            case SettingsRepresentation::Exact:
+                return Representation::Exact;
+            case SettingsRepresentation::Categorical:
+                return Representation::Categorical;
+            case SettingsRepresentation::Quantile:
+                return Representation::Quantile;
+        }
+        STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "Unknown distributional reward representation.");
     }
 };
 
