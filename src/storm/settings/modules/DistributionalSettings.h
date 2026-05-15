@@ -11,7 +11,7 @@ namespace modules {
 
 class DistributionalSettings : public ModuleSettings {
    public:
-    enum class Representation { Categorical, Quantile };
+    enum class Representation { Auto, Exact, Categorical, Quantile };
 
     DistributionalSettings();
 
@@ -20,6 +20,7 @@ class DistributionalSettings : public ModuleSettings {
     double getPrecision() const;
     uint64_t getMaximalIterationCount() const;
     uint64_t getNumberOfBudgetAtoms() const;
+    bool check() const override;
 
     static const std::string moduleName;
 
