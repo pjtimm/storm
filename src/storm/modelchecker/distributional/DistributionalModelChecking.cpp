@@ -7,7 +7,7 @@
 #include "storm/modelchecker/distributional/DistributionalReachabilityPreprocessor.h"
 #include "storm/modelchecker/distributional/DistributionalRewardReachabilityQuery.h"
 #include "storm/modelchecker/distributional/DistributionalValueIterationOptions.h"
-#include "storm/modelchecker/distributional/SparseMdpDistributionalValueIterationHelper.h"
+#include "storm/modelchecker/distributional/SparseMdpRiskNeutralObjective.h"
 #include "storm/modelchecker/results/CheckResult.h"
 #include "storm/modelchecker/results/ExplicitDistributionalCheckResult.h"
 #include "storm/models/sparse/Mdp.h"
@@ -35,10 +35,10 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
     auto const& settings = storm::settings::getModule<storm::settings::modules::DistributionalSettings>();
     auto options = DistributionalValueIterationOptions::fromSettings(settings);
 
-    SparseMdpDistributionalValueIterationHelper<typename SparseModelType::ValueType> helper(
+    SparseMdpRiskNeutralObjective<typename SparseModelType::ValueType> objective(
         preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
         preprocessorResult.properStates, options);
-    auto result = helper.computeExpectedRewardOptimalDistributions();
+    auto result = objective.computeExpectedRewardOptimalDistributions();
     return std::make_unique<ExplicitDistributionalCheckResult<SolutionType>>(std::move(result.distributions), std::move(result.finiteDistributionStates));
 }
 

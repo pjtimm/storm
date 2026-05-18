@@ -60,12 +60,14 @@ class CheckTask {
     }
 
     /*!
-     * If the currently specified formula is an OperatorFormula, this method updates the information that is given in the Operator formula.
-     * Calling this method has no effect if the provided formula is not an operator formula.
+     * If the currently specified formula is an OperatorFormula, or a wrapper with an operator subformula, this method updates the information that is
+     * given in the Operator formula. Calling this method has no effect if no operator formula is present.
      */
     void updateOperatorInformation() {
-        if (formula.get().isOperatorFormula()) {
-            storm::logic::OperatorFormula const& operatorFormula = formula.get().asOperatorFormula();
+        storm::logic::Formula const& operatorInformationFormula =
+            formula.get().isDistributionalFormula() ? formula.get().asDistributionalFormula().getSubformula() : formula.get();
+        if (operatorInformationFormula.isOperatorFormula()) {
+            storm::logic::OperatorFormula const& operatorFormula = operatorInformationFormula.asOperatorFormula();
             if (operatorFormula.hasOptimalityType()) {
                 this->optimizationDirection = operatorFormula.getOptimalityType();
             }
@@ -83,8 +85,8 @@ class CheckTask {
                                                   : OptimizationDirection::Minimize;
             }
 
-            if (formula.get().isProbabilityOperatorFormula()) {
-                storm::logic::ProbabilityOperatorFormula const& probabilityOperatorFormula = formula.get().asProbabilityOperatorFormula();
+            if (operatorInformationFormula.isProbabilityOperatorFormula()) {
+                storm::logic::ProbabilityOperatorFormula const& probabilityOperatorFormula = operatorInformationFormula.asProbabilityOperatorFormula();
 
                 if (probabilityOperatorFormula.hasBound()) {
                     if (storm::utility::isZero(probabilityOperatorFormula.template getThresholdAs<ValueType>()) ||
@@ -92,8 +94,8 @@ class CheckTask {
                         this->qualitative = true;
                     }
                 }
-            } else if (formula.get().isRewardOperatorFormula()) {
-                storm::logic::RewardOperatorFormula const& rewardOperatorFormula = formula.get().asRewardOperatorFormula();
+            } else if (operatorInformationFormula.isRewardOperatorFormula()) {
+                storm::logic::RewardOperatorFormula const& rewardOperatorFormula = operatorInformationFormula.asRewardOperatorFormula();
                 this->rewardModel = rewardOperatorFormula.getOptionalRewardModelName();
 
                 if (rewardOperatorFormula.hasBound()) {
