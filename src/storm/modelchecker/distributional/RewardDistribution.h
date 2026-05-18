@@ -29,8 +29,7 @@ struct RewardDistributionOptions {
         if (atoms == 0) {
             return 0;
         }
-        STORM_LOG_THROW(stepSize > 0, storm::exceptions::InvalidArgumentException,
-                        "Categorical reward distributions require a positive reward step size.");
+        STORM_LOG_THROW(stepSize > 0, storm::exceptions::InvalidArgumentException, "Categorical reward distributions require a positive reward step size.");
         STORM_LOG_THROW(atoms - 1 <= std::numeric_limits<uint64_t>::max() / stepSize, storm::exceptions::InvalidArgumentException,
                         "Categorical reward grid upper bound exceeds the supported integer range.");
         return (atoms - 1) * stepSize;
@@ -53,8 +52,7 @@ class RewardDistribution {
     static RewardDistribution categoricalTail(RewardDistributionOptions const& options) {
         STORM_LOG_THROW(options.representation == RewardDistributionOptions::Representation::Categorical, storm::exceptions::InvalidArgumentException,
                         "Can only create a categorical tail distribution for categorical options.");
-        STORM_LOG_THROW(options.atoms > 0, storm::exceptions::InvalidArgumentException,
-                        "Categorical reward distributions require a positive atom count.");
+        STORM_LOG_THROW(options.atoms > 0, storm::exceptions::InvalidArgumentException, "Categorical reward distributions require a positive atom count.");
         std::vector<ValueType> masses(options.atoms, storm::utility::zero<ValueType>());
         masses.back() = storm::utility::one<ValueType>();
         return RewardDistribution(std::move(masses), 0, options.getCategoricalUpperRewardBound());
@@ -124,10 +122,7 @@ class RewardDistribution {
     }
 
     RewardDistribution(std::vector<ValueType>&& categoricalMasses, uint64_t lowerRewardBound, uint64_t upperRewardBound)
-        : kind(Kind::Categorical),
-          categoricalMasses(std::move(categoricalMasses)),
-          lowerRewardBound(lowerRewardBound),
-          upperRewardBound(upperRewardBound) {
+        : kind(Kind::Categorical), categoricalMasses(std::move(categoricalMasses)), lowerRewardBound(lowerRewardBound), upperRewardBound(upperRewardBound) {
         // Intentionally left empty.
     }
 
@@ -162,8 +157,7 @@ class RewardDistributionBuilder {
                         "Quantile reward distributions are not implemented yet.");
         STORM_LOG_THROW(options.representation == Representation::Categorical, storm::exceptions::InvalidArgumentException,
                         "Only categorical reward distributions are currently supported.");
-        STORM_LOG_THROW(options.atoms > 0, storm::exceptions::InvalidArgumentException,
-                        "Categorical reward distributions require a positive atom count.");
+        STORM_LOG_THROW(options.atoms > 0, storm::exceptions::InvalidArgumentException, "Categorical reward distributions require a positive atom count.");
         STORM_LOG_THROW(options.stepSize > 0, storm::exceptions::InvalidArgumentException,
                         "Categorical reward distributions require a positive reward step size.");
         categoricalMasses = std::vector<ValueType>(options.atoms, storm::utility::zero<ValueType>());
@@ -205,8 +199,7 @@ class RewardDistributionBuilder {
             return;
         }
 
-        ValueType const relativePosition =
-            (reward - lower) * storm::utility::convertNumber<ValueType, uint64_t>(masses.size() - 1) / (upper - lower);
+        ValueType const relativePosition = (reward - lower) * storm::utility::convertNumber<ValueType, uint64_t>(masses.size() - 1) / (upper - lower);
         double const relativePositionAsDouble = storm::utility::convertNumber<double, ValueType>(relativePosition);
         uint64_t const leftAtom = std::min<uint64_t>(static_cast<uint64_t>(std::floor(relativePositionAsDouble)), masses.size() - 2);
         ValueType const leftValue = Distribution::getAtomValue(leftAtom, lowerRewardBound, upperRewardBound, masses.size());

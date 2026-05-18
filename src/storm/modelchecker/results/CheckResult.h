@@ -20,6 +20,9 @@ template<typename ValueType>
 class ExplicitQuantitativeCheckResult;
 
 template<typename ValueType>
+class ExplicitDistributionalCheckResult;
+
+template<typename ValueType>
 class ExplicitParetoCurveCheckResult;
 
 template<typename ValueType>
@@ -62,6 +65,7 @@ class CheckResult {
     virtual bool isLexicographicCheckResult() const;
     virtual bool isExplicitQualitativeCheckResult() const;
     virtual bool isExplicitQuantitativeCheckResult() const;
+    virtual bool isExplicitDistributionalCheckResult() const;
     virtual bool isExplicitParetoCurveCheckResult() const;
     virtual bool isSymbolicQualitativeCheckResult() const;
     virtual bool isSymbolicQuantitativeCheckResult() const;
@@ -89,6 +93,12 @@ class CheckResult {
 
     template<typename ValueType>
     ExplicitQuantitativeCheckResult<ValueType> const& asExplicitQuantitativeCheckResult() const;
+
+    template<typename ValueType>
+    ExplicitDistributionalCheckResult<ValueType>& asExplicitDistributionalCheckResult();
+
+    template<typename ValueType>
+    ExplicitDistributionalCheckResult<ValueType> const& asExplicitDistributionalCheckResult() const;
 
     template<typename ValueType>
     ExplicitParetoCurveCheckResult<ValueType>& asExplicitParetoCurveCheckResult();

@@ -2,6 +2,7 @@
 
 #include "storm/adapters/IntervalAdapter.h"
 #include "storm/adapters/RationalFunctionAdapter.h"
+#include "storm/modelchecker/results/ExplicitDistributionalCheckResult.h"
 #include "storm/modelchecker/results/ExplicitParetoCurveCheckResult.h"
 #include "storm/modelchecker/results/ExplicitQualitativeCheckResult.h"
 #include "storm/modelchecker/results/ExplicitQuantitativeCheckResult.h"
@@ -58,6 +59,10 @@ bool CheckResult::isExplicitQuantitativeCheckResult() const {
     return false;
 }
 
+bool CheckResult::isExplicitDistributionalCheckResult() const {
+    return false;
+}
+
 bool CheckResult::isExplicitParetoCurveCheckResult() const {
     return false;
 }
@@ -100,6 +105,18 @@ template<typename ValueType>
 ExplicitQuantitativeCheckResult<ValueType> const& CheckResult::asExplicitQuantitativeCheckResult() const {
     STORM_LOG_THROW(this->hasValueType<ValueType>(), storm::exceptions::InvalidOperationException, "Unexpected value type in check result.");
     return dynamic_cast<ExplicitQuantitativeCheckResult<ValueType> const&>(*this);
+}
+
+template<typename ValueType>
+ExplicitDistributionalCheckResult<ValueType>& CheckResult::asExplicitDistributionalCheckResult() {
+    STORM_LOG_THROW(this->hasValueType<ValueType>(), storm::exceptions::InvalidOperationException, "Unexpected value type in check result.");
+    return dynamic_cast<ExplicitDistributionalCheckResult<ValueType>&>(*this);
+}
+
+template<typename ValueType>
+ExplicitDistributionalCheckResult<ValueType> const& CheckResult::asExplicitDistributionalCheckResult() const {
+    STORM_LOG_THROW(this->hasValueType<ValueType>(), storm::exceptions::InvalidOperationException, "Unexpected value type in check result.");
+    return dynamic_cast<ExplicitDistributionalCheckResult<ValueType> const&>(*this);
 }
 
 template<typename ValueType>
@@ -196,6 +213,8 @@ template QuantitativeCheckResult<double> const& CheckResult::asQuantitativeCheck
 
 template ExplicitQuantitativeCheckResult<double>& CheckResult::asExplicitQuantitativeCheckResult();
 template ExplicitQuantitativeCheckResult<double> const& CheckResult::asExplicitQuantitativeCheckResult() const;
+template ExplicitDistributionalCheckResult<double>& CheckResult::asExplicitDistributionalCheckResult();
+template ExplicitDistributionalCheckResult<double> const& CheckResult::asExplicitDistributionalCheckResult() const;
 template ExplicitQualitativeCheckResult<double>& CheckResult::asExplicitQualitativeCheckResult();
 template ExplicitQualitativeCheckResult<double> const& CheckResult::asExplicitQualitativeCheckResult() const;
 template ExplicitParetoCurveCheckResult<double>& CheckResult::asExplicitParetoCurveCheckResult();
@@ -230,6 +249,8 @@ template QuantitativeCheckResult<storm::RationalNumber> const& CheckResult::asQu
 
 template ExplicitQuantitativeCheckResult<storm::RationalNumber>& CheckResult::asExplicitQuantitativeCheckResult();
 template ExplicitQuantitativeCheckResult<storm::RationalNumber> const& CheckResult::asExplicitQuantitativeCheckResult() const;
+template ExplicitDistributionalCheckResult<storm::RationalNumber>& CheckResult::asExplicitDistributionalCheckResult();
+template ExplicitDistributionalCheckResult<storm::RationalNumber> const& CheckResult::asExplicitDistributionalCheckResult() const;
 template ExplicitQualitativeCheckResult<storm::RationalNumber>& CheckResult::asExplicitQualitativeCheckResult();
 template ExplicitQualitativeCheckResult<storm::RationalNumber> const& CheckResult::asExplicitQualitativeCheckResult() const;
 

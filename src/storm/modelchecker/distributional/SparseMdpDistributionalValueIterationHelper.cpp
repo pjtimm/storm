@@ -34,7 +34,8 @@ SparseMdpDistributionalValueIterationHelper<ValueType>::SparseMdpDistributionalV
 }
 
 template<typename ValueType>
-std::vector<ValueType> SparseMdpDistributionalValueIterationHelper<ValueType>::computeExpectedRewards() {
+typename SparseMdpDistributionalValueIterationHelper<ValueType>::Result
+SparseMdpDistributionalValueIterationHelper<ValueType>::computeExpectedRewardOptimalDistributions() {
     RewardDistributionOptions const rewardDistributionOptions = options.toRewardDistributionOptions();
     std::vector<Distribution> distributions(transitionMatrix.getRowGroupCount(), Distribution::categoricalTail(rewardDistributionOptions));
     for (auto const targetState : targetStates) {
@@ -43,7 +44,7 @@ std::vector<ValueType> SparseMdpDistributionalValueIterationHelper<ValueType>::c
 
     for (uint64_t iteration = 0; iteration < options.maximalIterations; ++iteration) {
         std::vector<Distribution> newDistributions = distributions;
-        ValueType maximalDistance = storm::utility::zero<ValueType>();
+        ValueType maximalSquaredDistance = storm::utility::zero<ValueType>();
         for (auto const state : properNonTargetStates) {
             boost::optional<Distribution> bestDistribution;
             ValueType bestExpectation = storm::utility::zero<ValueType>();
@@ -60,19 +61,13 @@ std::vector<ValueType> SparseMdpDistributionalValueIterationHelper<ValueType>::c
             }
             STORM_LOG_THROW(bestDistribution, storm::exceptions::UnexpectedException,
                             "Expected at least one admissible distributional choice for a proper state.");
-            maximalDistance = std::max(maximalDistance, computeCategoricalDistance(distributions[state], bestDistribution.get()));
+            maximalSquaredDistance = std::max(maximalSquaredDistance, computeCategoricalSquaredDistance(distributions[state], bestDistribution.get()));
             newDistributions[state] = std::move(bestDistribution.get());
         }
         distributions = std::move(newDistributions);
-        if (storm::utility::convertNumber<double, ValueType>(maximalDistance) <= options.precision) {
-            std::vector<ValueType> result(transitionMatrix.getRowGroupCount(), storm::utility::infinity<ValueType>());
-            for (auto const targetState : targetStates) {
-                result[targetState] = storm::utility::zero<ValueType>();
-            }
-            for (auto const state : properNonTargetStates) {
-                result[state] = distributions[state].getExpectedValue();
-            }
-            return result;
+        ValueType const precision = storm::utility::convertNumber<ValueType>(options.precision);
+        if (maximalSquaredDistance <= precision * precision) {
+            return Result{std::move(distributions), properStates};
         }
     }
 
@@ -92,8 +87,8 @@ bool SparseMdpDistributionalValueIterationHelper<ValueType>::choiceStaysInProper
 }
 
 template<typename ValueType>
-typename SparseMdpDistributionalValueIterationHelper<ValueType>::Distribution
-SparseMdpDistributionalValueIterationHelper<ValueType>::buildChoiceDistribution(uint64_t choice, std::vector<Distribution> const& distributions) const {
+typename SparseMdpDistributionalValueIterationHelper<ValueType>::Distribution SparseMdpDistributionalValueIterationHelper<ValueType>::buildChoiceDistribution(
+    uint64_t choice, std::vector<Distribution> const& distributions) const {
     RewardDistributionBuilder<ValueType> builder(options.toRewardDistributionOptions());
     uint64_t const reward = getChoiceRewardAsInteger(choice);
     for (auto const& entry : transitionMatrix.getRow(choice)) {
@@ -106,7 +101,8 @@ SparseMdpDistributionalValueIterationHelper<ValueType>::buildChoiceDistribution(
 }
 
 template<typename ValueType>
-ValueType SparseMdpDistributionalValueIterationHelper<ValueType>::computeCategoricalDistance(Distribution const& first, Distribution const& second) const {
+ValueType SparseMdpDistributionalValueIterationHelper<ValueType>::computeCategoricalSquaredDistance(Distribution const& first,
+                                                                                                    Distribution const& second) const {
     STORM_LOG_THROW(first.isCategorical() && second.isCategorical(), storm::exceptions::UnexpectedException,
                     "Expected categorical distributions when computing convergence distance.");
     auto const& firstMasses = first.getCategoricalMasses();

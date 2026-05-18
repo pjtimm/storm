@@ -9,7 +9,7 @@
 #include "storm/modelchecker/distributional/DistributionalValueIterationOptions.h"
 #include "storm/modelchecker/distributional/SparseMdpDistributionalValueIterationHelper.h"
 #include "storm/modelchecker/results/CheckResult.h"
-#include "storm/modelchecker/results/ExplicitQuantitativeCheckResult.h"
+#include "storm/modelchecker/results/ExplicitDistributionalCheckResult.h"
 #include "storm/models/sparse/Mdp.h"
 #include "storm/settings/SettingsManager.h"
 #include "storm/settings/modules/DistributionalSettings.h"
@@ -31,21 +31,19 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
                     "Distributional value iteration does not support scheduler production yet.");
 
     auto query = parseDistributionalRewardReachabilityQuery(checkTask.getFormula());
-    auto preprocessorResult =
-        DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, checkTask.isProduceSchedulersSet());
+    auto preprocessorResult = DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, checkTask.isProduceSchedulersSet());
     auto const& settings = storm::settings::getModule<storm::settings::modules::DistributionalSettings>();
     auto options = DistributionalValueIterationOptions::fromSettings(settings);
 
     SparseMdpDistributionalValueIterationHelper<typename SparseModelType::ValueType> helper(
         preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
         preprocessorResult.properStates, options);
-    auto values = helper.computeExpectedRewards();
-    return std::make_unique<ExplicitQuantitativeCheckResult<SolutionType>>(std::move(values));
+    auto result = helper.computeExpectedRewardOptimalDistributions();
+    return std::make_unique<ExplicitDistributionalCheckResult<SolutionType>>(std::move(result.distributions), std::move(result.finiteDistributionStates));
 }
 
 template std::unique_ptr<CheckResult> performDistributionalModelChecking<storm::models::sparse::Mdp<double>, double>(
-    Environment const& env, storm::models::sparse::Mdp<double> const& model,
-    CheckTask<storm::logic::DistributionalFormula, double> const& checkTask);
+    Environment const& env, storm::models::sparse::Mdp<double> const& model, CheckTask<storm::logic::DistributionalFormula, double> const& checkTask);
 
 template std::unique_ptr<CheckResult> performDistributionalModelChecking<storm::models::sparse::Mdp<storm::RationalNumber>, storm::RationalNumber>(
     Environment const& env, storm::models::sparse::Mdp<storm::RationalNumber> const& model,

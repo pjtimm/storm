@@ -33,8 +33,7 @@ struct DistributionalValueIterationOptions {
     }
 
     void validate() const {
-        STORM_LOG_THROW(atoms > 0, storm::exceptions::NotSupportedException,
-                        "Distributional value iteration requires a positive atom count.");
+        STORM_LOG_THROW(atoms > 0, storm::exceptions::NotSupportedException, "Distributional value iteration requires a positive atom count.");
         STORM_LOG_THROW(stepSize > 0, storm::exceptions::NotSupportedException,
                         "Distributional value iteration requires a positive categorical reward step size.");
         STORM_LOG_THROW(representation != Representation::Quantile, storm::exceptions::NotSupportedException,

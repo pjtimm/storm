@@ -37,16 +37,16 @@ DistributionalSettings::DistributionalSettings() : ModuleSettings(moduleName) {
                                          .setDefaultValueUnsignedInteger(101)
                                          .build())
                         .build());
-    this->addOption(storm::settings::OptionBuilder(
-                        moduleName, stepSizeOptionName, true,
-                        "The reward distance between neighboring categorical atoms. The categorical grid is [0, (atoms - 1) * stepsize], "
-                        "with the final atom collecting rewards beyond this upper bound.")
-                        .setIsAdvanced()
-                        .addArgument(storm::settings::ArgumentBuilder::createUnsignedIntegerArgument("value", "The categorical reward step size.")
-                                         .addValidatorUnsignedInteger(ArgumentValidatorFactory::createUnsignedGreaterValidator(0))
-                                         .setDefaultValueUnsignedInteger(1)
-                                         .build())
-                        .build());
+    this->addOption(
+        storm::settings::OptionBuilder(moduleName, stepSizeOptionName, true,
+                                       "The reward distance between neighboring categorical atoms. The categorical grid is [0, (atoms - 1) * stepsize], "
+                                       "with the final atom collecting rewards beyond this upper bound.")
+            .setIsAdvanced()
+            .addArgument(storm::settings::ArgumentBuilder::createUnsignedIntegerArgument("value", "The categorical reward step size.")
+                             .addValidatorUnsignedInteger(ArgumentValidatorFactory::createUnsignedGreaterValidator(0))
+                             .setDefaultValueUnsignedInteger(1)
+                             .build())
+            .build());
     this->addOption(storm::settings::OptionBuilder(moduleName, precisionOptionName, true, "The convergence precision used for distributional value iteration.")
                         .setIsAdvanced()
                         .addArgument(storm::settings::ArgumentBuilder::createDoubleArgument("value", "The convergence precision.")
