@@ -7,7 +7,8 @@
 #include "storm/adapters/RationalNumberAdapter.h"
 #include "storm/exceptions/InvalidAccessException.h"
 #include "storm/modelchecker/distributional/DistributionalValueIterationOptions.h"
-#include "storm/modelchecker/distributional/SparseMdpDistributionalValueIterationHelper.h"
+#include "storm/modelchecker/distributional/RewardDistribution.h"
+#include "storm/modelchecker/distributional/SparseMdpRiskNeutralObjective.h"
 #include "storm/modelchecker/results/ExplicitDistributionalCheckResult.h"
 #include "storm/modelchecker/results/ExplicitQualitativeCheckResult.h"
 #include "storm/storage/BitVector.h"
@@ -22,7 +23,29 @@ storm::modelchecker::distributional::DistributionalValueIterationOptions makeOpt
 
 }  // namespace
 
-TEST(SparseMdpDistributionalValueIterationHelperTest, ReturnsDistributionForBestAcyclicChoice) {
+TEST(RewardDistributionTest, CategoricalOverflowMassUsesLastAtom) {
+    storm::modelchecker::distributional::RewardDistributionOptions options;
+    options.atoms = 4;
+    options.stepSize = 2;
+
+    using Distribution = storm::modelchecker::distributional::RewardDistribution<double>;
+    storm::modelchecker::distributional::RewardDistributionBuilder<double> builder(options);
+    builder.addScaledShifted(1.0, Distribution::pointMass(10), 0);
+    auto distribution = std::move(builder).build();
+
+    ASSERT_TRUE(distribution.isCategorical());
+    EXPECT_EQ(0ull, distribution.getLowerRewardBound());
+    EXPECT_EQ(6ull, distribution.getUpperRewardBound());
+    auto const& masses = distribution.getCategoricalMasses();
+    ASSERT_EQ(4ul, masses.size());
+    EXPECT_DOUBLE_EQ(0.0, masses[0]);
+    EXPECT_DOUBLE_EQ(0.0, masses[1]);
+    EXPECT_DOUBLE_EQ(0.0, masses[2]);
+    EXPECT_DOUBLE_EQ(1.0, masses[3]);
+    EXPECT_DOUBLE_EQ(6.0, distribution.getProjectedExpectedValue());
+}
+
+TEST(SparseMdpRiskNeutralObjectiveTest, ReturnsDistributionForBestAcyclicChoice) {
     storm::storage::SparseMatrixBuilder<double> builder(3, 2, 3, true, true, 2);
     builder.newRowGroup(0);
     builder.addNextValue(0, 1, 1.0);
@@ -34,8 +57,8 @@ TEST(SparseMdpDistributionalValueIterationHelperTest, ReturnsDistributionForBest
     storm::storage::BitVector targetStates(2, std::vector<uint64_t>{1});
     storm::storage::BitVector properStates(2, true);
 
-    storm::modelchecker::distributional::SparseMdpDistributionalValueIterationHelper<double> helper(matrix, rewards, targetStates, properStates, makeOptions());
-    auto result = helper.computeExpectedRewardOptimalDistributions();
+    storm::modelchecker::distributional::SparseMdpRiskNeutralObjective<double> objective(matrix, rewards, targetStates, properStates, makeOptions());
+    auto result = objective.computeExpectedRewardOptimalDistributions();
 
     ASSERT_EQ(2ul, result.distributions.size());
     ASSERT_TRUE(result.finiteDistributionStates.get(0));
@@ -47,7 +70,7 @@ TEST(SparseMdpDistributionalValueIterationHelperTest, ReturnsDistributionForBest
     EXPECT_DOUBLE_EQ(0.0, result.distributions[1].getProjectedExpectedValue());
 }
 
-TEST(SparseMdpDistributionalValueIterationHelperTest, FiltersAvoidableImproperChoices) {
+TEST(SparseMdpRiskNeutralObjectiveTest, FiltersAvoidableImproperChoices) {
     storm::storage::SparseMatrixBuilder<double> builder(4, 3, 4, true, true, 3);
     builder.newRowGroup(0);
     builder.addNextValue(0, 1, 1.0);
@@ -62,8 +85,8 @@ TEST(SparseMdpDistributionalValueIterationHelperTest, FiltersAvoidableImproperCh
     storm::storage::BitVector targetStates(3, std::vector<uint64_t>{1});
     storm::storage::BitVector properStates(3, std::vector<uint64_t>{0, 1});
 
-    storm::modelchecker::distributional::SparseMdpDistributionalValueIterationHelper<double> helper(matrix, rewards, targetStates, properStates, makeOptions());
-    auto result = helper.computeExpectedRewardOptimalDistributions();
+    storm::modelchecker::distributional::SparseMdpRiskNeutralObjective<double> objective(matrix, rewards, targetStates, properStates, makeOptions());
+    auto result = objective.computeExpectedRewardOptimalDistributions();
 
     EXPECT_TRUE(result.finiteDistributionStates.get(0));
     EXPECT_TRUE(result.finiteDistributionStates.get(1));
@@ -75,7 +98,7 @@ TEST(SparseMdpDistributionalValueIterationHelperTest, FiltersAvoidableImproperCh
     EXPECT_DOUBLE_EQ(1.0, masses[4]);
 }
 
-TEST(SparseMdpDistributionalValueIterationHelperTest, ConvergesOnProperCyclicModel) {
+TEST(SparseMdpRiskNeutralObjectiveTest, ConvergesOnProperCyclicModel) {
     storm::storage::SparseMatrixBuilder<double> builder(2, 2, 3, true, true, 2);
     builder.newRowGroup(0);
     builder.addNextValue(0, 0, 0.5);
@@ -88,9 +111,8 @@ TEST(SparseMdpDistributionalValueIterationHelperTest, ConvergesOnProperCyclicMod
     storm::storage::BitVector targetStates(2, std::vector<uint64_t>{1});
     storm::storage::BitVector properStates(2, true);
 
-    storm::modelchecker::distributional::SparseMdpDistributionalValueIterationHelper<double> helper(matrix, rewards, targetStates, properStates,
-                                                                                                    makeOptions(128));
-    auto result = helper.computeExpectedRewardOptimalDistributions();
+    storm::modelchecker::distributional::SparseMdpRiskNeutralObjective<double> objective(matrix, rewards, targetStates, properStates, makeOptions(128));
+    auto result = objective.computeExpectedRewardOptimalDistributions();
 
     ASSERT_TRUE(result.distributions[0].isCategorical());
     EXPECT_NEAR(2.0, result.distributions[0].getProjectedExpectedValue(), 1e-5);
