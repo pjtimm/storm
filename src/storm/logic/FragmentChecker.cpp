@@ -257,8 +257,8 @@ boost::any FragmentChecker::visit(QuantileFormula const& f, boost::any const& da
     return f.getSubformula().accept(*this, data);
 }
 
-boost::any FragmentChecker::visit(DistributionalFormula const& f, boost::any const& data) const {
-    return f.getSubformula().accept(*this, data);
+boost::any FragmentChecker::visit(DistributionalFormula const&, boost::any const&) const {
+    return false;
 }
 
 boost::any FragmentChecker::visit(NextFormula const& f, boost::any const& data) const {

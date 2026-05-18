@@ -38,6 +38,7 @@ class ExplicitDistributionalCheckResult : public CheckResult {
     distribution_vector_type const& getDistributionVector() const;
     distribution_map_type const& getDistributionMap() const;
 
+    bool hasFiniteDistribution(storm::storage::sparse::state_type state) const;
     bool hasDistribution(storm::storage::sparse::state_type state) const;
     distribution_type const& getDistribution(storm::storage::sparse::state_type state) const;
     ValueType getExpectedValue(storm::storage::sparse::state_type state) const;

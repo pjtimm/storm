@@ -24,13 +24,17 @@ SparseMdpDistributionalValueIterationHelper<ValueType>::SparseMdpDistributionalV
       targetStates(targetStates),
       properStates(properStates),
       properNonTargetStates(properStates & ~targetStates),
-      options(options) {
+      options(options),
+      admissibleChoices(transitionMatrix.getRowCount(), false) {
     STORM_LOG_THROW(transitionMatrix.getRowCount() == stateActionRewards.size(), storm::exceptions::InvalidArgumentException,
                     "Expected one distributional reward value per nondeterministic choice.");
     STORM_LOG_THROW(transitionMatrix.getRowGroupCount() == targetStates.size(), storm::exceptions::InvalidArgumentException,
                     "Distributional target-state vector has unexpected size.");
     STORM_LOG_THROW(transitionMatrix.getRowGroupCount() == properStates.size(), storm::exceptions::InvalidArgumentException,
                     "Distributional proper-state vector has unexpected size.");
+    for (uint64_t choice = 0; choice < transitionMatrix.getRowCount(); ++choice) {
+        admissibleChoices.set(choice, choiceStaysInProperStates(choice));
+    }
 }
 
 template<typename ValueType>
@@ -41,19 +45,19 @@ SparseMdpDistributionalValueIterationHelper<ValueType>::computeExpectedRewardOpt
     for (auto const targetState : targetStates) {
         distributions[targetState] = Distribution::pointMass(0);
     }
+    std::vector<Distribution> newDistributions = distributions;
 
     for (uint64_t iteration = 0; iteration < options.maximalIterations; ++iteration) {
-        std::vector<Distribution> newDistributions = distributions;
         ValueType maximalSquaredDistance = storm::utility::zero<ValueType>();
         for (auto const state : properNonTargetStates) {
             boost::optional<Distribution> bestDistribution;
             ValueType bestExpectation = storm::utility::zero<ValueType>();
             for (auto const choice : transitionMatrix.getRowGroupIndices(state)) {
-                if (!choiceStaysInProperStates(choice)) {
+                if (!admissibleChoices.get(choice)) {
                     continue;
                 }
                 Distribution choiceDistribution = buildChoiceDistribution(choice, distributions);
-                ValueType choiceExpectation = choiceDistribution.getExpectedValue();
+                ValueType choiceExpectation = choiceDistribution.getProjectedExpectedValue();
                 if (!bestDistribution || choiceExpectation < bestExpectation) {
                     bestExpectation = choiceExpectation;
                     bestDistribution = std::move(choiceDistribution);
@@ -64,7 +68,7 @@ SparseMdpDistributionalValueIterationHelper<ValueType>::computeExpectedRewardOpt
             maximalSquaredDistance = std::max(maximalSquaredDistance, computeCategoricalSquaredDistance(distributions[state], bestDistribution.get()));
             newDistributions[state] = std::move(bestDistribution.get());
         }
-        distributions = std::move(newDistributions);
+        distributions.swap(newDistributions);
         ValueType const precision = storm::utility::convertNumber<ValueType>(options.precision);
         if (maximalSquaredDistance <= precision * precision) {
             return Result{std::move(distributions), properStates};

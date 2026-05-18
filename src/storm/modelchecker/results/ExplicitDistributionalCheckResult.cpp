@@ -4,6 +4,7 @@
 #include "storm/exceptions/InvalidAccessException.h"
 #include "storm/exceptions/InvalidOperationException.h"
 #include "storm/modelchecker/results/ExplicitQualitativeCheckResult.h"
+#include "storm/utility/constants.h"
 #include "storm/utility/macros.h"
 
 namespace storm {
@@ -57,7 +58,7 @@ typename ExplicitDistributionalCheckResult<ValueType>::distribution_map_type con
 }
 
 template<typename ValueType>
-bool ExplicitDistributionalCheckResult<ValueType>::hasDistribution(storm::storage::sparse::state_type state) const {
+bool ExplicitDistributionalCheckResult<ValueType>::hasFiniteDistribution(storm::storage::sparse::state_type state) const {
     if (isResultForAllStates()) {
         return state < finiteDistributionStates.size() && finiteDistributionStates.get(state);
     }
@@ -65,9 +66,14 @@ bool ExplicitDistributionalCheckResult<ValueType>::hasDistribution(storm::storag
 }
 
 template<typename ValueType>
+bool ExplicitDistributionalCheckResult<ValueType>::hasDistribution(storm::storage::sparse::state_type state) const {
+    return hasFiniteDistribution(state);
+}
+
+template<typename ValueType>
 typename ExplicitDistributionalCheckResult<ValueType>::distribution_type const& ExplicitDistributionalCheckResult<ValueType>::getDistribution(
     storm::storage::sparse::state_type state) const {
-    STORM_LOG_THROW(hasDistribution(state), storm::exceptions::InvalidAccessException, "No finite distribution stored for state " << state << ".");
+    STORM_LOG_THROW(hasFiniteDistribution(state), storm::exceptions::InvalidAccessException, "No finite distribution stored for state " << state << ".");
     if (isResultForAllStates()) {
         return getDistributionVector()[state];
     }
@@ -76,7 +82,7 @@ typename ExplicitDistributionalCheckResult<ValueType>::distribution_type const& 
 
 template<typename ValueType>
 ValueType ExplicitDistributionalCheckResult<ValueType>::getExpectedValue(storm::storage::sparse::state_type state) const {
-    return getDistribution(state).getExpectedValue();
+    return getDistribution(state).getProjectedExpectedValue();
 }
 
 template<typename ValueType>
@@ -125,6 +131,9 @@ std::ostream& ExplicitDistributionalCheckResult<ValueType>::writeToStream(std::o
         out << "{";
         bool first = true;
         distribution.forEachMass([&out, &first](ValueType const& reward, ValueType const& mass) {
+            if (storm::utility::isZero(mass)) {
+                return;
+            }
             if (!first) {
                 out << ", ";
             }
@@ -146,7 +155,7 @@ std::ostream& ExplicitDistributionalCheckResult<ValueType>::writeToStream(std::o
                     out << ", ";
                 }
                 first = false;
-                if (hasDistribution(state)) {
+                if (hasFiniteDistribution(state)) {
                     printDistribution(getDistribution(state));
                 } else {
                     out << "inf";
@@ -157,7 +166,7 @@ std::ostream& ExplicitDistributionalCheckResult<ValueType>::writeToStream(std::o
     } else {
         if (resultStates.size() == 1) {
             auto const state = *resultStates.begin();
-            if (hasDistribution(state)) {
+            if (hasFiniteDistribution(state)) {
                 printDistribution(getDistribution(state));
             } else {
                 out << "inf";
@@ -171,7 +180,7 @@ std::ostream& ExplicitDistributionalCheckResult<ValueType>::writeToStream(std::o
                 }
                 first = false;
                 out << state << ": ";
-                if (hasDistribution(state)) {
+                if (hasFiniteDistribution(state)) {
                     printDistribution(getDistribution(state));
                 } else {
                     out << "inf";

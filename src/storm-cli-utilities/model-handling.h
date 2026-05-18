@@ -1022,7 +1022,25 @@ inline void generateCounterexamples(std::shared_ptr<ModelType> const& sparseMode
 template<typename ValueType>
     requires(!storm::IsIntervalType<ValueType>)
 void printFilteredResult(std::unique_ptr<storm::modelchecker::CheckResult> const& result, storm::modelchecker::FilterType ft) {
-    if (result->isQuantitative()) {
+    if (result->isExplicitDistributionalCheckResult()) {
+        switch (ft) {
+            case storm::modelchecker::FilterType::VALUES:
+                STORM_PRINT(*result);
+                break;
+            case storm::modelchecker::FilterType::SUM:
+            case storm::modelchecker::FilterType::AVG:
+            case storm::modelchecker::FilterType::MIN:
+            case storm::modelchecker::FilterType::MAX:
+            case storm::modelchecker::FilterType::ARGMIN:
+            case storm::modelchecker::FilterType::ARGMAX:
+                STORM_LOG_THROW(false, storm::exceptions::NotSupportedException,
+                                "Filter type is not supported for distributional results. Use value output or a distributional statistic.");
+            case storm::modelchecker::FilterType::EXISTS:
+            case storm::modelchecker::FilterType::FORALL:
+            case storm::modelchecker::FilterType::COUNT:
+                STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Filter type only defined for qualitative results.");
+        }
+    } else if (result->isQuantitative()) {
         if (ft == storm::modelchecker::FilterType::VALUES) {
             STORM_PRINT(*result);
         } else {

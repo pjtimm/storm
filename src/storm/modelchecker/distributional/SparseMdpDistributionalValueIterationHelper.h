@@ -40,6 +40,7 @@ class SparseMdpDistributionalValueIterationHelper {
     storm::storage::BitVector properStates;
     storm::storage::BitVector properNonTargetStates;
     DistributionalValueIterationOptions options;
+    storm::storage::BitVector admissibleChoices;
 };
 
 }  // namespace distributional

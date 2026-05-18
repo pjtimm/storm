@@ -27,7 +27,7 @@ bool DistributionalFormula::hasQualitativeResult() const {
 }
 
 bool DistributionalFormula::hasQuantitativeResult() const {
-    return true;
+    return false;
 }
 
 Formula const& DistributionalFormula::getSubformula() const {

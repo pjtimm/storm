@@ -43,8 +43,8 @@ TEST(SparseMdpDistributionalValueIterationHelperTest, ReturnsDistributionForBest
     auto const& masses = result.distributions[0].getCategoricalMasses();
     ASSERT_GT(masses.size(), 3ul);
     EXPECT_DOUBLE_EQ(1.0, masses[3]);
-    EXPECT_DOUBLE_EQ(3.0, result.distributions[0].getExpectedValue());
-    EXPECT_DOUBLE_EQ(0.0, result.distributions[1].getExpectedValue());
+    EXPECT_DOUBLE_EQ(3.0, result.distributions[0].getProjectedExpectedValue());
+    EXPECT_DOUBLE_EQ(0.0, result.distributions[1].getProjectedExpectedValue());
 }
 
 TEST(SparseMdpDistributionalValueIterationHelperTest, FiltersAvoidableImproperChoices) {
@@ -68,7 +68,7 @@ TEST(SparseMdpDistributionalValueIterationHelperTest, FiltersAvoidableImproperCh
     EXPECT_TRUE(result.finiteDistributionStates.get(0));
     EXPECT_TRUE(result.finiteDistributionStates.get(1));
     EXPECT_FALSE(result.finiteDistributionStates.get(2));
-    EXPECT_DOUBLE_EQ(4.0, result.distributions[0].getExpectedValue());
+    EXPECT_DOUBLE_EQ(4.0, result.distributions[0].getProjectedExpectedValue());
 
     auto const& masses = result.distributions[0].getCategoricalMasses();
     ASSERT_GT(masses.size(), 4ul);
@@ -93,8 +93,8 @@ TEST(SparseMdpDistributionalValueIterationHelperTest, ConvergesOnProperCyclicMod
     auto result = helper.computeExpectedRewardOptimalDistributions();
 
     ASSERT_TRUE(result.distributions[0].isCategorical());
-    EXPECT_NEAR(2.0, result.distributions[0].getExpectedValue(), 1e-5);
-    EXPECT_DOUBLE_EQ(0.0, result.distributions[1].getExpectedValue());
+    EXPECT_NEAR(2.0, result.distributions[0].getProjectedExpectedValue(), 1e-5);
+    EXPECT_DOUBLE_EQ(0.0, result.distributions[1].getProjectedExpectedValue());
 }
 
 TEST(ExplicitDistributionalCheckResultTest, StoresAndFiltersFiniteDistributions) {
@@ -114,9 +114,9 @@ TEST(ExplicitDistributionalCheckResultTest, StoresAndFiltersFiniteDistributions)
     storm::modelchecker::CheckResult& checkResult = result;
     EXPECT_TRUE(checkResult.isExplicitDistributionalCheckResult());
     EXPECT_DOUBLE_EQ(2.0, checkResult.asExplicitDistributionalCheckResult<double>().getExpectedValue(0));
-    EXPECT_TRUE(result.hasDistribution(0));
-    EXPECT_FALSE(result.hasDistribution(1));
-    EXPECT_TRUE(result.hasDistribution(2));
+    EXPECT_TRUE(result.hasFiniteDistribution(0));
+    EXPECT_FALSE(result.hasFiniteDistribution(1));
+    EXPECT_TRUE(result.hasFiniteDistribution(2));
     EXPECT_DOUBLE_EQ(2.0, result.getExpectedValue(0));
     STORM_SILENT_EXPECT_THROW(result.getDistribution(1), storm::exceptions::InvalidAccessException);
     STORM_SILENT_EXPECT_THROW(result.getExpectedValue(1), storm::exceptions::InvalidAccessException);
@@ -126,8 +126,8 @@ TEST(ExplicitDistributionalCheckResultTest, StoresAndFiltersFiniteDistributions)
     result.filter(filter);
 
     EXPECT_FALSE(result.isResultForAllStates());
-    EXPECT_FALSE(result.hasDistribution(1));
-    EXPECT_TRUE(result.hasDistribution(2));
+    EXPECT_FALSE(result.hasFiniteDistribution(1));
+    EXPECT_TRUE(result.hasFiniteDistribution(2));
     STORM_SILENT_EXPECT_THROW(result.getExpectedValue(1), storm::exceptions::InvalidAccessException);
     EXPECT_DOUBLE_EQ(0.0, result.getExpectedValue(2));
 }

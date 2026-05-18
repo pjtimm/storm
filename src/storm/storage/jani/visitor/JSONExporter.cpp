@@ -469,7 +469,8 @@ boost::any FormulaToJaniJson::visit(storm::logic::QuantileFormula const&, boost:
 }
 
 boost::any FormulaToJaniJson::visit(storm::logic::DistributionalFormula const& f, boost::any const& data) const {
-    return f.getSubformula().accept(*this, data);
+    STORM_LOG_THROW(false, storm::exceptions::NotSupportedException,
+                    "JANI export does not support distributional formulas yet. The wrapped formula is '" << f.getSubformula() << "'.");
 }
 
 boost::any FormulaToJaniJson::visit(storm::logic::NextFormula const& f, boost::any const& data) const {

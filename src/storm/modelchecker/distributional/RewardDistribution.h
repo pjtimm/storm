@@ -93,10 +93,14 @@ class RewardDistribution {
         return upperRewardBound;
     }
 
-    ValueType getExpectedValue() const {
+    ValueType getProjectedExpectedValue() const {
         ValueType result = storm::utility::zero<ValueType>();
         forEachMass([&result](ValueType const& reward, ValueType const& mass) { result += reward * mass; });
         return result;
+    }
+
+    ValueType getExpectedValue() const {
+        return getProjectedExpectedValue();
     }
 
     template<typename Callback>
@@ -151,8 +155,7 @@ class RewardDistributionBuilder {
     using Distribution = RewardDistribution<ValueType>;
     using Representation = typename RewardDistributionOptions::Representation;
 
-    explicit RewardDistributionBuilder(RewardDistributionOptions const& options)
-        : options(options), lowerRewardBound(0), upperRewardBound(options.getCategoricalUpperRewardBound()), kind(Distribution::Kind::Categorical) {
+    explicit RewardDistributionBuilder(RewardDistributionOptions const& options) : lowerRewardBound(0), upperRewardBound(options.getCategoricalUpperRewardBound()) {
         STORM_LOG_THROW(options.representation != Representation::Quantile, storm::exceptions::NotSupportedException,
                         "Quantile reward distributions are not implemented yet.");
         STORM_LOG_THROW(options.representation == Representation::Categorical, storm::exceptions::InvalidArgumentException,
@@ -209,11 +212,8 @@ class RewardDistributionBuilder {
         masses[leftAtom + 1] += mass * rightWeight;
     }
 
-    RewardDistributionOptions options;
     uint64_t lowerRewardBound;
     uint64_t upperRewardBound;
-    typename Distribution::Kind kind;
-    typename Distribution::ExactDistribution exactMasses;
     std::vector<ValueType> categoricalMasses;
 };
 
