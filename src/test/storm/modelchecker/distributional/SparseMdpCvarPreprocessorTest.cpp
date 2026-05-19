@@ -36,10 +36,11 @@ TEST(SparseMdpCvarPreprocessorTest, ComputesBoundsForProperDag) {
     storm::storage::BitVector targetStates(4, std::vector<uint64_t>{3});
     storm::storage::BitVector properStates(4, true);
 
-    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates);
+    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, 3);
     auto result = preprocessor.computeRewardBounds();
 
     EXPECT_TRUE(result.finiteRewardStates.get(0));
+    EXPECT_EQ(0ul, result.initialState);
     ASSERT_EQ(4ul, result.lowerRewardBounds.size());
     ASSERT_EQ(4ul, result.upperRewardBounds.size());
     EXPECT_DOUBLE_EQ(4.0, result.lowerRewardBounds[0]);
@@ -50,6 +51,78 @@ TEST(SparseMdpCvarPreprocessorTest, ComputesBoundsForProperDag) {
     EXPECT_DOUBLE_EQ(1.0, result.upperRewardBounds[2]);
     EXPECT_DOUBLE_EQ(0.0, result.lowerRewardBounds[3]);
     EXPECT_DOUBLE_EQ(0.0, result.upperRewardBounds[3]);
+    EXPECT_DOUBLE_EQ(4.0, result.initialLowerRewardBound);
+    EXPECT_DOUBLE_EQ(6.0, result.initialUpperRewardBound);
+    ASSERT_EQ(3ul, result.getNumberOfBudgetAtoms());
+    EXPECT_DOUBLE_EQ(4.0, result.getBudgetValue(0));
+    EXPECT_DOUBLE_EQ(5.0, result.getBudgetValue(1));
+    EXPECT_DOUBLE_EQ(6.0, result.getBudgetValue(2));
+    EXPECT_EQ(0ul, result.getNextBudgetIndex(2, 2.0));
+    EXPECT_EQ(1ul, result.getNextBudgetIndex(2, 1.0));
+}
+
+TEST(SparseMdpCvarPreprocessorTest, BuildsEvenlySpacedBudgetGrid) {
+    storm::storage::SparseMatrixBuilder<double> builder(3, 2, 3, true, true, 2);
+    builder.newRowGroup(0);
+    builder.addNextValue(0, 1, 1.0);
+    builder.addNextValue(1, 1, 1.0);
+    builder.newRowGroup(2);
+    builder.addNextValue(2, 1, 1.0);
+    auto matrix = builder.build();
+
+    std::vector<double> rewards = {0.0, 10.0, 0.0};
+    storm::storage::BitVector targetStates(2, std::vector<uint64_t>{1});
+    storm::storage::BitVector properStates(2, true);
+
+    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, 4);
+    auto result = preprocessor.computeRewardBounds();
+
+    ASSERT_EQ(4ul, result.getNumberOfBudgetAtoms());
+    EXPECT_DOUBLE_EQ(0.0, result.getBudgetValue(0));
+    EXPECT_NEAR(10.0 / 3.0, result.getBudgetValue(1), 1e-12);
+    EXPECT_NEAR(20.0 / 3.0, result.getBudgetValue(2), 1e-12);
+    EXPECT_DOUBLE_EQ(10.0, result.getBudgetValue(3));
+    EXPECT_EQ(1ul, result.getNextBudgetIndex(3, 4.0));
+    EXPECT_EQ(2ul, result.getNextBudgetIndex(2, 0.0));
+    EXPECT_EQ(0ul, result.getNextBudgetIndex(1, 20.0));
+}
+
+TEST(SparseMdpCvarPreprocessorTest, AcceptsSingletonInitialSupportWithOneBudgetAtom) {
+    storm::storage::SparseMatrixBuilder<double> builder(2, 2, 2, true, true, 2);
+    builder.newRowGroup(0);
+    builder.addNextValue(0, 1, 1.0);
+    builder.newRowGroup(1);
+    builder.addNextValue(1, 1, 1.0);
+    auto matrix = builder.build();
+
+    std::vector<double> rewards = {5.0, 0.0};
+    storm::storage::BitVector targetStates(2, std::vector<uint64_t>{1});
+    storm::storage::BitVector properStates(2, true);
+
+    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, 1);
+    auto result = preprocessor.computeRewardBounds();
+
+    ASSERT_EQ(1ul, result.getNumberOfBudgetAtoms());
+    EXPECT_DOUBLE_EQ(5.0, result.getBudgetValue(0));
+    EXPECT_EQ(0ul, result.getNextBudgetIndex(0, 0.0));
+    EXPECT_EQ(0ul, result.getNextBudgetIndex(0, 5.0));
+}
+
+TEST(SparseMdpCvarPreprocessorTest, RejectsOneBudgetAtomForNonSingletonInitialSupport) {
+    storm::storage::SparseMatrixBuilder<double> builder(3, 2, 3, true, true, 2);
+    builder.newRowGroup(0);
+    builder.addNextValue(0, 1, 1.0);
+    builder.addNextValue(1, 1, 1.0);
+    builder.newRowGroup(2);
+    builder.addNextValue(2, 1, 1.0);
+    auto matrix = builder.build();
+
+    std::vector<double> rewards = {0.0, 10.0, 0.0};
+    storm::storage::BitVector targetStates(2, std::vector<uint64_t>{1});
+    storm::storage::BitVector properStates(2, true);
+
+    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, 1);
+    STORM_SILENT_EXPECT_THROW(preprocessor.computeRewardBounds(), storm::exceptions::NotSupportedException);
 }
 
 TEST(SparseMdpCvarPreprocessorTest, RejectsProperNonTargetCycle) {
@@ -67,7 +140,7 @@ TEST(SparseMdpCvarPreprocessorTest, RejectsProperNonTargetCycle) {
     storm::storage::BitVector targetStates(3, std::vector<uint64_t>{2});
     storm::storage::BitVector properStates(3, true);
 
-    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates);
+    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, 3);
     STORM_SILENT_EXPECT_THROW(preprocessor.computeRewardBounds(), storm::exceptions::NotSupportedException);
 }
 
@@ -87,7 +160,7 @@ TEST(SparseMdpCvarPreprocessorTest, RejectsImproperStates) {
     storm::storage::BitVector properStates(3, std::vector<uint64_t>{0, 1});
 
     auto constructPreprocessor = [&]() {
-        storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates);
+        storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, 3);
         static_cast<void>(preprocessor);
     };
     STORM_SILENT_EXPECT_THROW(constructPreprocessor(), storm::exceptions::NotSupportedException);

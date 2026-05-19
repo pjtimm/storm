@@ -49,7 +49,7 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
         case DistributionalValueIterationOptions::Objective::Cvar: {
             SparseMdpCvarPreprocessor<typename SparseModelType::ValueType> cvarPreprocessor(
                 preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
-                preprocessorResult.properStates);
+                preprocessorResult.properStates, preprocessorResult.initialState, options.budgetAtoms);
             auto cvarPreprocessorResult = cvarPreprocessor.computeRewardBounds();
             static_cast<void>(cvarPreprocessorResult);
             STORM_LOG_THROW(false, storm::exceptions::NotImplementedException,

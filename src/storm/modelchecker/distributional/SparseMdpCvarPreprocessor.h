@@ -27,15 +27,48 @@ class SparseMdpCvarPreprocessor {
         std::vector<ValueType> upperRewardBounds;
         storm::storage::BitVector finiteRewardStates;
         std::vector<uint64_t> topologicalOrder;
+        uint64_t initialState;
+        ValueType initialLowerRewardBound;
+        ValueType initialUpperRewardBound;
+        std::vector<ValueType> budgetGrid;
+
+        uint64_t getNumberOfBudgetAtoms() const {
+            return budgetGrid.size();
+        }
+
+        ValueType const& getBudgetValue(uint64_t budgetIndex) const {
+            STORM_LOG_THROW(budgetIndex < budgetGrid.size(), storm::exceptions::InvalidArgumentException,
+                            "CVaR budget index " << budgetIndex << " is out of range for a grid with " << budgetGrid.size() << " atoms.");
+            return budgetGrid[budgetIndex];
+        }
+
+        uint64_t getNextBudgetIndex(uint64_t currentBudgetIndex, ValueType const& reward) const {
+            STORM_LOG_THROW(currentBudgetIndex < budgetGrid.size(), storm::exceptions::InvalidArgumentException,
+                            "CVaR current budget index " << currentBudgetIndex << " is out of range for a grid with " << budgetGrid.size()
+                                                         << " atoms.");
+            STORM_LOG_THROW(reward >= storm::utility::zero<ValueType>() && storm::utility::isInteger(reward),
+                            storm::exceptions::InvalidArgumentException,
+                            "CVaR budget transitions require a non-negative integer reward, but got " << reward << ".");
+
+            ValueType const nextBudget = budgetGrid[currentBudgetIndex] - reward;
+            auto const upper = std::upper_bound(budgetGrid.begin(), budgetGrid.end(), nextBudget);
+            if (upper == budgetGrid.begin()) {
+                return 0;
+            }
+            return static_cast<uint64_t>((upper - budgetGrid.begin()) - 1);
+        }
     };
 
     SparseMdpCvarPreprocessor(storm::storage::SparseMatrix<ValueType> const& transitionMatrix, std::vector<ValueType> const& stateActionRewards,
-                              storm::storage::BitVector const& targetStates, storm::storage::BitVector const& properStates)
+                              storm::storage::BitVector const& targetStates, storm::storage::BitVector const& properStates, uint64_t initialState,
+                              uint64_t requestedBudgetAtoms)
         : transitionMatrix(transitionMatrix),
           stateActionRewards(stateActionRewards),
           targetStates(targetStates),
           properStates(properStates),
-          properNonTargetStates(properStates & ~targetStates) {
+          properNonTargetStates(properStates & ~targetStates),
+          initialState(initialState),
+          requestedBudgetAtoms(requestedBudgetAtoms) {
         STORM_LOG_THROW(transitionMatrix.getRowCount() == stateActionRewards.size(), storm::exceptions::InvalidArgumentException,
                         "CVaR preprocessing expects one normalized state-action reward per nondeterministic choice, but got "
                             << stateActionRewards.size() << " rewards for " << transitionMatrix.getRowCount() << " choices.");
@@ -47,6 +80,11 @@ class SparseMdpCvarPreprocessor {
                         "CVaR preprocessing expects one proper-state bit per state, but got a vector of size " << properStates.size() << " for "
                                                                                                                << transitionMatrix.getRowGroupCount()
                                                                                                                << " states.");
+        STORM_LOG_THROW(initialState < transitionMatrix.getRowGroupCount(), storm::exceptions::InvalidArgumentException,
+                        "CVaR preprocessing received initial state " << initialState << ", but the model has " << transitionMatrix.getRowGroupCount()
+                                                                     << " states.");
+        STORM_LOG_THROW(requestedBudgetAtoms > 0, storm::exceptions::InvalidArgumentException,
+                        "CVaR preprocessing requires a positive requested budget atom count.");
         STORM_LOG_THROW(properStates.full(), storm::exceptions::NotSupportedException,
                         "CVaR preprocessing currently requires every state to be proper, i.e., every state must admit an almost-sure target-reaching "
                         "scheduler. The first CVaR bounded-support contract only computes finite support bounds for fully proper models, but got "
@@ -62,6 +100,7 @@ class SparseMdpCvarPreprocessor {
         result.upperRewardBounds.resize(transitionMatrix.getRowGroupCount(), storm::utility::zero<ValueType>());
         result.finiteRewardStates = properStates;
         result.topologicalOrder = computeTopologicalOrder();
+        result.initialState = initialState;
 
         for (auto it = result.topologicalOrder.rbegin(); it != result.topologicalOrder.rend(); ++it) {
             uint64_t const state = *it;
@@ -88,10 +127,43 @@ class SparseMdpCvarPreprocessor {
             result.upperRewardBounds[state] = stateUpperBound;
         }
 
+        result.initialLowerRewardBound = result.lowerRewardBounds[initialState];
+        result.initialUpperRewardBound = result.upperRewardBounds[initialState];
+        result.budgetGrid = computeBudgetGrid(result.initialLowerRewardBound, result.initialUpperRewardBound);
+        STORM_LOG_INFO("CVaR budget grid for initial state " << initialState << " spans [" << result.initialLowerRewardBound << ", "
+                                                             << result.initialUpperRewardBound << "] with " << result.budgetGrid.size()
+                                                             << " atom(s), requested " << requestedBudgetAtoms << ".");
+
         return result;
     }
 
    private:
+    std::vector<ValueType> computeBudgetGrid(ValueType const& lowerBound, ValueType const& upperBound) const {
+        STORM_LOG_THROW(storm::utility::isInteger(lowerBound) && storm::utility::isInteger(upperBound), storm::exceptions::UnexpectedException,
+                        "Expected integer CVaR reward bounds, but got [" << lowerBound << ", " << upperBound << "].");
+        STORM_LOG_THROW(lowerBound <= upperBound, storm::exceptions::UnexpectedException,
+                        "Expected ordered CVaR reward bounds, but got [" << lowerBound << ", " << upperBound << "].");
+
+        if (lowerBound == upperBound) {
+            return {lowerBound};
+        }
+
+        STORM_LOG_THROW(requestedBudgetAtoms > 1, storm::exceptions::NotSupportedException,
+                        "CVaR preprocessing can use a single budget atom only for singleton initial reward support, but the initial support is ["
+                            << lowerBound << ", " << upperBound << "].");
+
+        std::vector<ValueType> result(requestedBudgetAtoms);
+        ValueType const step = (upperBound - lowerBound) / storm::utility::convertNumber<ValueType>(requestedBudgetAtoms - 1);
+        for (uint64_t index = 0; index < requestedBudgetAtoms; ++index) {
+            result[index] = lowerBound + storm::utility::convertNumber<ValueType>(index) * step;
+        }
+        result.back() = upperBound;
+
+        STORM_LOG_THROW(result.front() == lowerBound && result.back() == upperBound, storm::exceptions::UnexpectedException,
+                        "Failed to construct a CVaR budget grid that includes the initial reward support endpoints.");
+        return result;
+    }
+
     bool choiceStaysInProperStates(uint64_t choice) const {
         for (auto const& entry : transitionMatrix.getRow(choice)) {
             if (!storm::utility::isZero(entry.getValue()) && !targetStates.get(entry.getColumn()) && !properStates.get(entry.getColumn())) {
@@ -169,6 +241,8 @@ class SparseMdpCvarPreprocessor {
     storm::storage::BitVector targetStates;
     storm::storage::BitVector properStates;
     storm::storage::BitVector properNonTargetStates;
+    uint64_t initialState;
+    uint64_t requestedBudgetAtoms;
 };
 
 }  // namespace distributional

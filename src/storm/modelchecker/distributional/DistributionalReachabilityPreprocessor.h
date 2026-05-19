@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -31,6 +32,7 @@ struct DistributionalReachabilityPreprocessorResult {
     std::string rewardModelName;
     RewardModelType const* rewardModel;
     std::shared_ptr<storm::logic::Formula const> targetFormula;
+    uint64_t initialState;
     storm::storage::BitVector targetStates;
     storm::storage::BitVector properStates;
     storm::storage::SparseMatrix<ValueType> targetAbsorbingTransitionMatrix;
@@ -62,9 +64,12 @@ class DistributionalReachabilityPreprocessor {
         storm::storage::BitVector properStates = computeProperStates(model, targetAbsorbingTransitionMatrix, targetStates);
         validateInitialStatesAreProper(model, properStates);
 
+        uint64_t const initialState = model.getInitialStates().getNextSetIndex(0);
+
         return Result{rewardModelName,
                       &rewardModel,
                       query.targetFormula.asSharedPointer(),
+                      initialState,
                       std::move(targetStates),
                       std::move(properStates),
                       std::move(targetAbsorbingTransitionMatrix),
