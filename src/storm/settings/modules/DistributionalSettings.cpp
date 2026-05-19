@@ -13,14 +13,25 @@ namespace settings {
 namespace modules {
 
 std::string const DistributionalSettings::moduleName = "distributional";
+std::string const DistributionalSettings::objectiveOptionName = "objective";
 std::string const DistributionalSettings::representationOptionName = "representation";
 std::string const DistributionalSettings::atomsOptionName = "atoms";
 std::string const DistributionalSettings::stepSizeOptionName = "stepsize";
 std::string const DistributionalSettings::precisionOptionName = "precision";
 std::string const DistributionalSettings::maxIterationsOptionName = "maxiter";
 std::string const DistributionalSettings::budgetAtomsOptionName = "budgetatoms";
+std::string const DistributionalSettings::alphaOptionName = "alpha";
 
 DistributionalSettings::DistributionalSettings() : ModuleSettings(moduleName) {
+    std::vector<std::string> objectives = {"risk-neutral", "cvar"};
+    this->addOption(storm::settings::OptionBuilder(moduleName, objectiveOptionName, true,
+                                                   "The distributional objective to optimize.")
+                        .setIsAdvanced()
+                        .addArgument(storm::settings::ArgumentBuilder::createStringArgument("name", "The objective to use.")
+                                         .addValidatorString(ArgumentValidatorFactory::createMultipleChoiceValidator(objectives))
+                                         .setDefaultValueString("risk-neutral")
+                                         .build())
+                        .build());
     std::vector<std::string> representations = {"categorical", "quantile"};
     this->addOption(storm::settings::OptionBuilder(moduleName, representationOptionName, true,
                                                    "The finite projected distribution representation used for distributional model checking.")
@@ -69,6 +80,24 @@ DistributionalSettings::DistributionalSettings() : ModuleSettings(moduleName) {
                              .setDefaultValueUnsignedInteger(101)
                              .build())
             .build());
+    this->addOption(storm::settings::OptionBuilder(moduleName, alphaOptionName, true,
+                                                   "The CVaR tail mass alpha used for risk-sensitive distributional objectives.")
+                        .setIsAdvanced()
+                        .addArgument(storm::settings::ArgumentBuilder::createDoubleArgument("value", "The CVaR tail mass alpha.")
+                                         .addValidatorDouble(ArgumentValidatorFactory::createDoubleRangeValidatorExcluding(0.0, 1.0))
+                                         .setDefaultValueDouble(0.05)
+                                         .build())
+                        .build());
+}
+
+DistributionalSettings::Objective DistributionalSettings::getObjective() const {
+    std::string objective = this->getOption(objectiveOptionName).getArgumentByName("name").getValueAsString();
+    if (objective == "risk-neutral") {
+        return Objective::RiskNeutral;
+    } else if (objective == "cvar") {
+        return Objective::Cvar;
+    }
+    STORM_LOG_THROW(false, storm::exceptions::IllegalArgumentValueException, "Unknown distributional objective '" << objective << "'.");
 }
 
 DistributionalSettings::Representation DistributionalSettings::getRepresentation() const {
@@ -99,6 +128,10 @@ uint64_t DistributionalSettings::getMaximalIterationCount() const {
 
 uint64_t DistributionalSettings::getNumberOfBudgetAtoms() const {
     return this->getOption(budgetAtomsOptionName).getArgumentByName("count").getValueAsUnsignedInteger();
+}
+
+double DistributionalSettings::getAlpha() const {
+    return this->getOption(alphaOptionName).getArgumentByName("value").getValueAsDouble();
 }
 
 bool DistributionalSettings::check() const {

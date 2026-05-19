@@ -14,12 +14,16 @@ namespace distributional {
 
 struct DistributionalValueIterationOptions {
     using Representation = RewardDistributionRepresentation;
+    enum class Objective { RiskNeutral, Cvar };
 
-    Representation representation;
-    uint64_t atoms;
-    uint64_t stepSize;
-    double precision;
-    uint64_t maximalIterations;
+    Representation representation = Representation::Categorical;
+    uint64_t atoms = 101;
+    uint64_t stepSize = 1;
+    double precision = 1e-6;
+    uint64_t maximalIterations = 10000;
+    Objective objective = Objective::RiskNeutral;
+    double alpha = 0.05;
+    uint64_t budgetAtoms = 101;
 
     RewardDistributionOptions toRewardDistributionOptions() const {
         return RewardDistributionOptions{representation, atoms, stepSize};
@@ -27,7 +31,8 @@ struct DistributionalValueIterationOptions {
 
     static DistributionalValueIterationOptions fromSettings(storm::settings::modules::DistributionalSettings const& settings) {
         DistributionalValueIterationOptions options{convertRepresentation(settings.getRepresentation()), settings.getNumberOfAtoms(),
-                                                    settings.getRewardStepSize(), settings.getPrecision(), settings.getMaximalIterationCount()};
+                                                    settings.getRewardStepSize(), settings.getPrecision(), settings.getMaximalIterationCount(),
+                                                    convertObjective(settings.getObjective()), settings.getAlpha(), settings.getNumberOfBudgetAtoms()};
         options.validate();
         return options;
     }
@@ -38,9 +43,24 @@ struct DistributionalValueIterationOptions {
                         "Distributional value iteration requires a positive categorical reward step size.");
         STORM_LOG_THROW(representation != Representation::Quantile, storm::exceptions::NotSupportedException,
                         "Distributional value iteration does not support quantile reward distributions yet.");
+        STORM_LOG_THROW(alpha > 0.0 && alpha < 1.0, storm::exceptions::NotSupportedException,
+                        "Distributional CVaR requires alpha to be in the interval (0, 1).");
+        STORM_LOG_THROW(budgetAtoms > 0, storm::exceptions::NotSupportedException,
+                        "Distributional CVaR requires a positive budget atom count.");
     }
 
    private:
+    static Objective convertObjective(storm::settings::modules::DistributionalSettings::Objective objective) {
+        using SettingsObjective = storm::settings::modules::DistributionalSettings::Objective;
+        switch (objective) {
+            case SettingsObjective::RiskNeutral:
+                return Objective::RiskNeutral;
+            case SettingsObjective::Cvar:
+                return Objective::Cvar;
+        }
+        STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "Unknown distributional objective.");
+    }
+
     static Representation convertRepresentation(storm::settings::modules::DistributionalSettings::Representation representation) {
         using SettingsRepresentation = storm::settings::modules::DistributionalSettings::Representation;
         switch (representation) {

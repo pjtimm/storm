@@ -37,11 +37,20 @@ class SparseMdpCvarPreprocessor {
           properStates(properStates),
           properNonTargetStates(properStates & ~targetStates) {
         STORM_LOG_THROW(transitionMatrix.getRowCount() == stateActionRewards.size(), storm::exceptions::InvalidArgumentException,
-                        "Expected one CVaR distributional reward value per nondeterministic choice.");
+                        "CVaR preprocessing expects one normalized state-action reward per nondeterministic choice, but got "
+                            << stateActionRewards.size() << " rewards for " << transitionMatrix.getRowCount() << " choices.");
         STORM_LOG_THROW(transitionMatrix.getRowGroupCount() == targetStates.size(), storm::exceptions::InvalidArgumentException,
-                        "CVaR distributional target-state vector has unexpected size.");
+                        "CVaR preprocessing expects one target-state bit per state, but got a vector of size " << targetStates.size() << " for "
+                                                                                                               << transitionMatrix.getRowGroupCount()
+                                                                                                               << " states.");
         STORM_LOG_THROW(transitionMatrix.getRowGroupCount() == properStates.size(), storm::exceptions::InvalidArgumentException,
-                        "CVaR distributional proper-state vector has unexpected size.");
+                        "CVaR preprocessing expects one proper-state bit per state, but got a vector of size " << properStates.size() << " for "
+                                                                                                               << transitionMatrix.getRowGroupCount()
+                                                                                                               << " states.");
+        STORM_LOG_THROW(properStates.full(), storm::exceptions::NotSupportedException,
+                        "CVaR preprocessing currently requires every state to be proper, i.e., every state must admit an almost-sure target-reaching "
+                        "scheduler. The first CVaR bounded-support contract only computes finite support bounds for fully proper models, but got "
+                            << properStates.getNumberOfSetBits() << " proper states out of " << properStates.size() << ".");
     }
 
     Result computeRewardBounds() const {

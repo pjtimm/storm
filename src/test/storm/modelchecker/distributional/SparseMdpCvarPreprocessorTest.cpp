@@ -71,6 +71,28 @@ TEST(SparseMdpCvarPreprocessorTest, RejectsProperNonTargetCycle) {
     STORM_SILENT_EXPECT_THROW(preprocessor.computeRewardBounds(), storm::exceptions::NotSupportedException);
 }
 
+TEST(SparseMdpCvarPreprocessorTest, RejectsImproperStates) {
+    storm::storage::SparseMatrixBuilder<double> builder(4, 3, 4, true, true, 3);
+    builder.newRowGroup(0);
+    builder.addNextValue(0, 1, 1.0);
+    builder.addNextValue(1, 2, 1.0);
+    builder.newRowGroup(2);
+    builder.addNextValue(2, 1, 1.0);
+    builder.newRowGroup(3);
+    builder.addNextValue(3, 2, 1.0);
+    auto matrix = builder.build();
+
+    std::vector<double> rewards = {4.0, 0.0, 0.0, 0.0};
+    storm::storage::BitVector targetStates(3, std::vector<uint64_t>{1});
+    storm::storage::BitVector properStates(3, std::vector<uint64_t>{0, 1});
+
+    auto constructPreprocessor = [&]() {
+        storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates);
+        static_cast<void>(preprocessor);
+    };
+    STORM_SILENT_EXPECT_THROW(constructPreprocessor(), storm::exceptions::NotSupportedException);
+}
+
 TEST(SparseMdpCvarPreprocessorTest, RiskNeutralDviStillAcceptsProperCycle) {
     storm::storage::SparseMatrixBuilder<double> builder(2, 2, 3, true, true, 2);
     builder.newRowGroup(0);

@@ -6,11 +6,13 @@
 
 #include "storm/adapters/RationalNumberAdapter.h"
 #include "storm/exceptions/InvalidAccessException.h"
+#include "storm/exceptions/NotSupportedException.h"
 #include "storm/modelchecker/distributional/DistributionalValueIterationOptions.h"
 #include "storm/modelchecker/distributional/RewardDistribution.h"
 #include "storm/modelchecker/distributional/SparseMdpRiskNeutralObjective.h"
 #include "storm/modelchecker/results/ExplicitDistributionalCheckResult.h"
 #include "storm/modelchecker/results/ExplicitQualitativeCheckResult.h"
+#include "storm/settings/modules/DistributionalSettings.h"
 #include "storm/storage/BitVector.h"
 #include "storm/storage/SparseMatrix.h"
 
@@ -43,6 +45,30 @@ TEST(RewardDistributionTest, CategoricalOverflowMassUsesLastAtom) {
     EXPECT_DOUBLE_EQ(0.0, masses[2]);
     EXPECT_DOUBLE_EQ(1.0, masses[3]);
     EXPECT_DOUBLE_EQ(6.0, distribution.getProjectedExpectedValue());
+}
+
+TEST(DistributionalValueIterationOptionsTest, ReadsDefaultObjectiveSettings) {
+    storm::settings::modules::DistributionalSettings settings;
+
+    auto options = storm::modelchecker::distributional::DistributionalValueIterationOptions::fromSettings(settings);
+
+    EXPECT_EQ(storm::modelchecker::distributional::DistributionalValueIterationOptions::Objective::RiskNeutral, options.objective);
+    EXPECT_DOUBLE_EQ(0.05, options.alpha);
+    EXPECT_EQ(101ull, options.budgetAtoms);
+}
+
+TEST(DistributionalValueIterationOptionsTest, ValidatesCvarAlpha) {
+    storm::modelchecker::distributional::DistributionalValueIterationOptions options;
+    options.objective = storm::modelchecker::distributional::DistributionalValueIterationOptions::Objective::Cvar;
+    options.alpha = 0.5;
+
+    EXPECT_NO_THROW(options.validate());
+
+    options.alpha = 0.0;
+    STORM_SILENT_EXPECT_THROW(options.validate(), storm::exceptions::NotSupportedException);
+
+    options.alpha = 1.0;
+    STORM_SILENT_EXPECT_THROW(options.validate(), storm::exceptions::NotSupportedException);
 }
 
 TEST(SparseMdpRiskNeutralObjectiveTest, ReturnsDistributionForBestAcyclicChoice) {

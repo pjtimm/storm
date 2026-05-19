@@ -2,11 +2,13 @@
 
 #include "storm/adapters/RationalNumberAdapter.h"
 #include "storm/exceptions/InvalidPropertyException.h"
+#include "storm/exceptions/NotImplementedException.h"
 #include "storm/exceptions/NotSupportedException.h"
 #include "storm/modelchecker/CheckTask.h"
 #include "storm/modelchecker/distributional/DistributionalReachabilityPreprocessor.h"
 #include "storm/modelchecker/distributional/DistributionalRewardReachabilityQuery.h"
 #include "storm/modelchecker/distributional/DistributionalValueIterationOptions.h"
+#include "storm/modelchecker/distributional/SparseMdpCvarPreprocessor.h"
 #include "storm/modelchecker/distributional/SparseMdpRiskNeutralObjective.h"
 #include "storm/modelchecker/results/CheckResult.h"
 #include "storm/modelchecker/results/ExplicitDistributionalCheckResult.h"
@@ -31,15 +33,31 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
                     "Distributional value iteration does not support scheduler production yet.");
 
     auto query = parseDistributionalRewardReachabilityQuery(checkTask.getFormula());
-    auto preprocessorResult = DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, checkTask.isProduceSchedulersSet());
     auto const& settings = storm::settings::getModule<storm::settings::modules::DistributionalSettings>();
     auto options = DistributionalValueIterationOptions::fromSettings(settings);
+    auto preprocessorResult = DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, checkTask.isProduceSchedulersSet());
 
-    SparseMdpRiskNeutralObjective<typename SparseModelType::ValueType> objective(
-        preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
-        preprocessorResult.properStates, options);
-    auto result = objective.computeExpectedRewardOptimalDistributions();
-    return std::make_unique<ExplicitDistributionalCheckResult<SolutionType>>(std::move(result.distributions), std::move(result.finiteDistributionStates));
+    switch (options.objective) {
+        case DistributionalValueIterationOptions::Objective::RiskNeutral: {
+            SparseMdpRiskNeutralObjective<typename SparseModelType::ValueType> objective(
+                preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
+                preprocessorResult.properStates, options);
+            auto result = objective.computeExpectedRewardOptimalDistributions();
+            return std::make_unique<ExplicitDistributionalCheckResult<SolutionType>>(std::move(result.distributions),
+                                                                                     std::move(result.finiteDistributionStates));
+        }
+        case DistributionalValueIterationOptions::Objective::Cvar: {
+            SparseMdpCvarPreprocessor<typename SparseModelType::ValueType> cvarPreprocessor(
+                preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
+                preprocessorResult.properStates);
+            auto cvarPreprocessorResult = cvarPreprocessor.computeRewardBounds();
+            static_cast<void>(cvarPreprocessorResult);
+            STORM_LOG_THROW(false, storm::exceptions::NotImplementedException,
+                            "Distributional CVaR model checking is not implemented yet beyond CVaR-specific preprocessing.");
+        }
+    }
+    STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "Unknown distributional objective.");
+    return nullptr;
 }
 
 template std::unique_ptr<CheckResult> performDistributionalModelChecking<storm::models::sparse::Mdp<double>, double>(
