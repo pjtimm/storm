@@ -3,8 +3,10 @@
 
 #include <vector>
 
+#include "storm/exceptions/InvalidArgumentException.h"
 #include "storm/exceptions/NotSupportedException.h"
 #include "storm/modelchecker/distributional/DistributionalValueIterationOptions.h"
+#include "storm/modelchecker/distributional/SparseMdpCvarObjective.h"
 #include "storm/modelchecker/distributional/SparseMdpCvarPreprocessor.h"
 #include "storm/modelchecker/distributional/SparseMdpRiskNeutralObjective.h"
 #include "storm/storage/BitVector.h"
@@ -15,6 +17,14 @@ namespace {
 storm::modelchecker::distributional::DistributionalValueIterationOptions makeRiskNeutralOptions(uint64_t atoms = 128, uint64_t stepSize = 1) {
     return storm::modelchecker::distributional::DistributionalValueIterationOptions{
         storm::modelchecker::distributional::RewardDistributionRepresentation::Categorical, atoms, stepSize, 1e-10, 10000};
+}
+
+storm::modelchecker::distributional::DistributionalValueIterationOptions makeCvarOptions(uint64_t atoms = 128, uint64_t stepSize = 1,
+                                                                                        uint64_t budgetAtoms = 3) {
+    auto options = makeRiskNeutralOptions(atoms, stepSize);
+    options.objective = storm::modelchecker::distributional::DistributionalValueIterationOptions::Objective::Cvar;
+    options.budgetAtoms = budgetAtoms;
+    return options;
 }
 
 }  // namespace
@@ -123,6 +133,113 @@ TEST(SparseMdpCvarPreprocessorTest, RejectsOneBudgetAtomForNonSingletonInitialSu
 
     storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, 1);
     STORM_SILENT_EXPECT_THROW(preprocessor.computeRewardBounds(), storm::exceptions::NotSupportedException);
+}
+
+TEST(SparseMdpCvarObjectiveTest, ProductIndexRoundTrips) {
+    storm::storage::SparseMatrixBuilder<double> builder(3, 2, 3, true, true, 2);
+    builder.newRowGroup(0);
+    builder.addNextValue(0, 1, 1.0);
+    builder.addNextValue(1, 1, 1.0);
+    builder.newRowGroup(2);
+    builder.addNextValue(2, 1, 1.0);
+    auto matrix = builder.build();
+
+    std::vector<double> rewards = {0.0, 10.0, 0.0};
+    storm::storage::BitVector targetStates(2, std::vector<uint64_t>{1});
+    storm::storage::BitVector properStates(2, true);
+    auto options = makeCvarOptions(128, 1, 4);
+
+    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, options.budgetAtoms);
+    auto preprocessorResult = preprocessor.computeRewardBounds();
+    storm::modelchecker::distributional::SparseMdpCvarObjective<double> objective(matrix, rewards, targetStates, properStates, options, preprocessorResult);
+
+    EXPECT_EQ(2ul, objective.getStateCount());
+    EXPECT_EQ(4ul, objective.getBudgetCount());
+    EXPECT_EQ(8ul, objective.getProductStateCount());
+    for (uint64_t state = 0; state < objective.getStateCount(); ++state) {
+        for (uint64_t budgetIndex = 0; budgetIndex < objective.getBudgetCount(); ++budgetIndex) {
+            uint64_t const productState = objective.getProductStateIndex(state, budgetIndex);
+            EXPECT_EQ(state, objective.getOriginalState(productState));
+            EXPECT_EQ(budgetIndex, objective.getBudgetIndex(productState));
+        }
+    }
+}
+
+TEST(SparseMdpCvarObjectiveTest, MemoizesProductDistributionsLazily) {
+    storm::storage::SparseMatrixBuilder<double> builder(3, 2, 3, true, true, 2);
+    builder.newRowGroup(0);
+    builder.addNextValue(0, 1, 1.0);
+    builder.addNextValue(1, 1, 1.0);
+    builder.newRowGroup(2);
+    builder.addNextValue(2, 1, 1.0);
+    auto matrix = builder.build();
+
+    std::vector<double> rewards = {0.0, 10.0, 0.0};
+    storm::storage::BitVector targetStates(2, std::vector<uint64_t>{1});
+    storm::storage::BitVector properStates(2, true);
+    auto options = makeCvarOptions(5, 1, 4);
+
+    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, options.budgetAtoms);
+    auto preprocessorResult = preprocessor.computeRewardBounds();
+    storm::modelchecker::distributional::SparseMdpCvarObjective<double> objective(matrix, rewards, targetStates, properStates, options, preprocessorResult);
+    auto cache = objective.createProductDistributionCache();
+
+    EXPECT_EQ(0ul, cache.getCachedDistributionCount());
+
+    uint64_t const nonTargetProductState = objective.getProductStateIndex(0, 2);
+    EXPECT_TRUE(objective.isFiniteProductState(nonTargetProductState));
+    auto const& nonTargetDistribution = objective.getOrInitializeProductDistribution(cache, nonTargetProductState);
+    EXPECT_TRUE(nonTargetDistribution.isCategorical());
+    EXPECT_DOUBLE_EQ(4.0, nonTargetDistribution.getProjectedExpectedValue());
+    EXPECT_TRUE(cache.hasDistribution(nonTargetProductState));
+    EXPECT_EQ(1ul, cache.getCachedDistributionCount());
+
+    auto const& sameDistribution = objective.getOrInitializeProductDistribution(cache, nonTargetProductState);
+    EXPECT_DOUBLE_EQ(nonTargetDistribution.getProjectedExpectedValue(), sameDistribution.getProjectedExpectedValue());
+    EXPECT_EQ(1ul, cache.getCachedDistributionCount());
+
+    uint64_t const targetProductState = objective.getProductStateIndex(1, 3);
+    EXPECT_TRUE(objective.isFiniteProductState(targetProductState));
+    auto const& targetDistribution = objective.getOrInitializeProductDistribution(cache, targetProductState);
+    EXPECT_TRUE(targetDistribution.isExact());
+    EXPECT_DOUBLE_EQ(0.0, targetDistribution.getProjectedExpectedValue());
+    EXPECT_TRUE(cache.hasDistribution(targetProductState));
+    EXPECT_EQ(2ul, cache.getCachedDistributionCount());
+}
+
+TEST(SparseMdpCvarObjectiveTest, MasksImproperOriginalStatesWhenInitializedDirectly) {
+    storm::storage::SparseMatrixBuilder<double> builder(2, 2, 2, true, true, 2);
+    builder.newRowGroup(0);
+    builder.addNextValue(0, 0, 1.0);
+    builder.newRowGroup(1);
+    builder.addNextValue(1, 1, 1.0);
+    auto matrix = builder.build();
+
+    std::vector<double> rewards = {0.0, 0.0};
+    storm::storage::BitVector targetStates(2, std::vector<uint64_t>{1});
+    storm::storage::BitVector properStates(2, std::vector<uint64_t>{1});
+    auto options = makeCvarOptions(5, 1, 2);
+
+    storm::modelchecker::distributional::SparseMdpCvarObjective<double>::PreprocessorResult preprocessorResult;
+    preprocessorResult.lowerRewardBounds = {0.0, 0.0};
+    preprocessorResult.upperRewardBounds = {0.0, 0.0};
+    preprocessorResult.finiteRewardStates = properStates;
+    preprocessorResult.initialState = 1;
+    preprocessorResult.initialLowerRewardBound = 0.0;
+    preprocessorResult.initialUpperRewardBound = 0.0;
+    preprocessorResult.budgetGrid = {0.0, 1.0};
+
+    storm::modelchecker::distributional::SparseMdpCvarObjective<double> objective(matrix, rewards, targetStates, properStates, options, preprocessorResult);
+    auto cache = objective.createProductDistributionCache();
+
+    for (uint64_t budgetIndex = 0; budgetIndex < objective.getBudgetCount(); ++budgetIndex) {
+        uint64_t const improperProductState = objective.getProductStateIndex(0, budgetIndex);
+        uint64_t const properProductState = objective.getProductStateIndex(1, budgetIndex);
+        EXPECT_FALSE(objective.isFiniteProductState(improperProductState));
+        EXPECT_TRUE(objective.isFiniteProductState(properProductState));
+        STORM_SILENT_EXPECT_THROW(objective.getOrInitializeProductDistribution(cache, improperProductState), storm::exceptions::InvalidArgumentException);
+        EXPECT_FALSE(cache.hasDistribution(improperProductState));
+    }
 }
 
 TEST(SparseMdpCvarPreprocessorTest, RejectsProperNonTargetCycle) {

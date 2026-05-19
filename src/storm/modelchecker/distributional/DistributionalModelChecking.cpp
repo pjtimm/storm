@@ -8,6 +8,7 @@
 #include "storm/modelchecker/distributional/DistributionalReachabilityPreprocessor.h"
 #include "storm/modelchecker/distributional/DistributionalRewardReachabilityQuery.h"
 #include "storm/modelchecker/distributional/DistributionalValueIterationOptions.h"
+#include "storm/modelchecker/distributional/SparseMdpCvarObjective.h"
 #include "storm/modelchecker/distributional/SparseMdpCvarPreprocessor.h"
 #include "storm/modelchecker/distributional/SparseMdpRiskNeutralObjective.h"
 #include "storm/modelchecker/results/CheckResult.h"
@@ -51,9 +52,12 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
                 preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
                 preprocessorResult.properStates, preprocessorResult.initialState, options.budgetAtoms);
             auto cvarPreprocessorResult = cvarPreprocessor.computeRewardBounds();
-            static_cast<void>(cvarPreprocessorResult);
+            SparseMdpCvarObjective<typename SparseModelType::ValueType> objective(
+                preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
+                preprocessorResult.properStates, options, cvarPreprocessorResult);
+            static_cast<void>(objective);
             STORM_LOG_THROW(false, storm::exceptions::NotImplementedException,
-                            "Distributional CVaR model checking is not implemented yet beyond CVaR-specific preprocessing.");
+                            "Distributional CVaR model checking is not implemented yet beyond CVaR product-state setup.");
         }
     }
     STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "Unknown distributional objective.");
