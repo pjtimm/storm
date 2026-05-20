@@ -17,10 +17,10 @@ namespace modelchecker {
 namespace distributional {
 
 template<typename ValueType>
-SparseMdpCvarObjective<ValueType>::SparseMdpCvarObjective(
-    storm::storage::SparseMatrix<ValueType> const& transitionMatrix, std::vector<ValueType> const& stateActionRewards,
-    storm::storage::BitVector const& targetStates, storm::storage::BitVector const& properStates, DistributionalValueIterationOptions const& options,
-    PreprocessorResult const& preprocessorResult)
+SparseMdpCvarObjective<ValueType>::SparseMdpCvarObjective(storm::storage::SparseMatrix<ValueType> const& transitionMatrix,
+                                                          std::vector<ValueType> const& stateActionRewards, storm::storage::BitVector const& targetStates,
+                                                          storm::storage::BitVector const& properStates, DistributionalValueIterationOptions const& options,
+                                                          PreprocessorResult const& preprocessorResult)
     : transitionMatrix(transitionMatrix),
       stateActionRewards(stateActionRewards),
       targetStates(targetStates),
@@ -167,8 +167,7 @@ typename SparseMdpCvarObjective<ValueType>::ReachableProductStates SparseMdpCvar
 }
 
 template<typename ValueType>
-void SparseMdpCvarObjective<ValueType>::runTopologicalViSweep(ReachableProductStates const& productStates,
-                                                              std::vector<Distribution>& distributions) const {
+void SparseMdpCvarObjective<ValueType>::runTopologicalViSweep(ReachableProductStates const& productStates, std::vector<Distribution>& distributions) const {
     for (auto stateIt = preprocessorResult.topologicalOrder.rbegin(); stateIt != preprocessorResult.topologicalOrder.rend(); ++stateIt) {
         uint64_t const state = *stateIt;
         for (auto const productStateIndex : productStates.indicesByState[state]) {
@@ -251,27 +250,25 @@ void SparseMdpCvarObjective<ValueType>::validateDimensions() const {
                     "CVaR product objective expects one normalized state-action reward per nondeterministic choice, but got "
                         << stateActionRewards.size() << " rewards for " << transitionMatrix.getRowCount() << " choices.");
     STORM_LOG_THROW(stateCount == targetStates.size(), storm::exceptions::InvalidArgumentException,
-                    "CVaR product objective expects one target-state bit per state, but got a vector of size " << targetStates.size() << " for "
-                                                                                                              << stateCount << " states.");
+                    "CVaR product objective expects one target-state bit per state, but got a vector of size " << targetStates.size() << " for " << stateCount
+                                                                                                               << " states.");
     STORM_LOG_THROW(stateCount == properStates.size(), storm::exceptions::InvalidArgumentException,
-                    "CVaR product objective expects one proper-state bit per state, but got a vector of size " << properStates.size() << " for "
-                                                                                                              << stateCount << " states.");
+                    "CVaR product objective expects one proper-state bit per state, but got a vector of size " << properStates.size() << " for " << stateCount
+                                                                                                               << " states.");
     STORM_LOG_THROW(stateCount == preprocessorResult.lowerRewardBounds.size(), storm::exceptions::InvalidArgumentException,
-                    "CVaR product objective expects one lower reward bound per state, but got " << preprocessorResult.lowerRewardBounds.size()
-                                                                                               << " bounds for " << stateCount << " states.");
+                    "CVaR product objective expects one lower reward bound per state, but got " << preprocessorResult.lowerRewardBounds.size() << " bounds for "
+                                                                                                << stateCount << " states.");
     STORM_LOG_THROW(stateCount == preprocessorResult.upperRewardBounds.size(), storm::exceptions::InvalidArgumentException,
-                    "CVaR product objective expects one upper reward bound per state, but got " << preprocessorResult.upperRewardBounds.size()
-                                                                                               << " bounds for " << stateCount << " states.");
+                    "CVaR product objective expects one upper reward bound per state, but got " << preprocessorResult.upperRewardBounds.size() << " bounds for "
+                                                                                                << stateCount << " states.");
     STORM_LOG_THROW(stateCount == preprocessorResult.finiteRewardStates.size(), storm::exceptions::InvalidArgumentException,
                     "CVaR product objective expects one finite-reward-state bit per state, but got a vector of size "
                         << preprocessorResult.finiteRewardStates.size() << " for " << stateCount << " states.");
     STORM_LOG_THROW(preprocessorResult.initialState < stateCount, storm::exceptions::InvalidArgumentException,
-                    "CVaR product objective received initial state " << preprocessorResult.initialState << ", but the model has " << stateCount
-                                                                    << " states.");
+                    "CVaR product objective received initial state " << preprocessorResult.initialState << ", but the model has " << stateCount << " states.");
     STORM_LOG_THROW(budgetCount > 0, storm::exceptions::InvalidArgumentException, "CVaR product objective requires a non-empty budget grid.");
     STORM_LOG_THROW(stateCount <= std::numeric_limits<uint64_t>::max() / budgetCount, storm::exceptions::InvalidArgumentException,
-                    "CVaR product objective state space size overflows uint64_t for " << stateCount << " states and " << budgetCount
-                                                                                     << " budget atoms.");
+                    "CVaR product objective state space size overflows uint64_t for " << stateCount << " states and " << budgetCount << " budget atoms.");
 
     storm::storage::BitVector topologicalStates(stateCount, false);
     for (auto const state : preprocessorResult.topologicalOrder) {
@@ -279,7 +276,7 @@ void SparseMdpCvarObjective<ValueType>::validateDimensions() const {
                         "CVaR product objective received topological-order state " << state << ", but the model has " << stateCount << " states.");
         STORM_LOG_THROW(properStates.get(state) && !targetStates.get(state), storm::exceptions::InvalidArgumentException,
                         "CVaR product objective topological order contains state " << state << ", but the topological order should contain only "
-                                                                                  << "proper non-target states.");
+                                                                                   << "proper non-target states.");
         STORM_LOG_THROW(!topologicalStates.get(state), storm::exceptions::InvalidArgumentException,
                         "CVaR product objective topological order contains state " << state << " more than once.");
         topologicalStates.set(state, true);

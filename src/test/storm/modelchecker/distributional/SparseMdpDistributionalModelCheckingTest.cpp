@@ -9,8 +9,8 @@
 #include <utility>
 #include <vector>
 
-#include "storm/adapters/RationalNumberAdapter.h"
 #include "storm-parsers/parser/FormulaParser.h"
+#include "storm/adapters/RationalNumberAdapter.h"
 #include "storm/environment/Environment.h"
 #include "storm/exceptions/NotSupportedException.h"
 #include "storm/logic/DistributionalFormula.h"
@@ -44,8 +44,7 @@ storm::storage::SparseMatrix<double> buildTwoStateTransitionRewardMatrix() {
     return buildTwoStateTargetMatrix();
 }
 
-storm::models::sparse::StateLabeling makeLabeling(uint64_t stateCount, std::vector<uint64_t> const& initialStates,
-                                                  std::vector<uint64_t> const& targetStates) {
+storm::models::sparse::StateLabeling makeLabeling(uint64_t stateCount, std::vector<uint64_t> const& initialStates, std::vector<uint64_t> const& targetStates) {
     storm::models::sparse::StateLabeling labeling(stateCount);
     labeling.addLabel("init");
     for (auto state : initialStates) {
@@ -66,8 +65,8 @@ Mdp makeMdp(storm::storage::SparseMatrix<double>&& transitionMatrix, storm::mode
 
 Mdp makeTwoStateTargetMdp(std::vector<double> stateRewards, std::vector<double> stateActionRewards, std::vector<uint64_t> initialStates = {0},
                           std::optional<storm::storage::SparseMatrix<double>> transitionRewards = std::nullopt) {
-    RewardModel rewardModel(std::optional<std::vector<double>>(std::move(stateRewards)),
-                            std::optional<std::vector<double>>(std::move(stateActionRewards)), std::move(transitionRewards));
+    RewardModel rewardModel(std::optional<std::vector<double>>(std::move(stateRewards)), std::optional<std::vector<double>>(std::move(stateActionRewards)),
+                            std::move(transitionRewards));
     return makeMdp(buildTwoStateTargetMatrix(), makeLabeling(2, initialStates, {1}), std::move(rewardModel));
 }
 
@@ -88,7 +87,7 @@ std::shared_ptr<storm::logic::DistributionalFormula const> makeDistributionalFor
 }
 
 storm::modelchecker::distributional::DistributionalReachabilityPreprocessor<Mdp>::Result preprocess(Mdp const& mdp,
-                                                                                                     std::string const& formulaText = "Rmin=? [F \"target\"]") {
+                                                                                                    std::string const& formulaText = "Rmin=? [F \"target\"]") {
     storm::Environment env;
     auto formula = makeDistributionalFormula(formulaText);
     auto query = storm::modelchecker::distributional::parseDistributionalRewardReachabilityQuery(*formula);
@@ -118,8 +117,8 @@ TEST(SparseMdpDistributionalPreprocessorTest, NormalizesRewardsAndMakesTargetsAb
 }
 
 TEST(SparseMdpDistributionalPreprocessorTest, RejectsTransitionRewards) {
-    auto mdp = makeTwoStateTargetMdp({0.0, 0.0}, {1.0, 0.0, 0.0}, {0},
-                                     std::optional<storm::storage::SparseMatrix<double>>(buildTwoStateTransitionRewardMatrix()));
+    auto mdp =
+        makeTwoStateTargetMdp({0.0, 0.0}, {1.0, 0.0, 0.0}, {0}, std::optional<storm::storage::SparseMatrix<double>>(buildTwoStateTransitionRewardMatrix()));
 
     STORM_SILENT_EXPECT_THROW(preprocess(mdp), storm::exceptions::NotSupportedException);
 }

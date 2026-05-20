@@ -7,8 +7,8 @@
 
 #include "storm/modelchecker/distributional/DistributionalValueIterationOptions.h"
 #include "storm/modelchecker/distributional/RewardDistribution.h"
-#include "storm/modelchecker/distributional/SparseMdpDistributionalViHelper.h"
 #include "storm/modelchecker/distributional/SparseMdpCvarPreprocessor.h"
+#include "storm/modelchecker/distributional/SparseMdpDistributionalViHelper.h"
 #include "storm/storage/BitVector.h"
 #include "storm/storage/SparseMatrix.h"
 #include "storm/storage/sparse/StateType.h"

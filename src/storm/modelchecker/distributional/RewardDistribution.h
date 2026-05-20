@@ -155,7 +155,8 @@ class RewardDistributionBuilder {
     using Distribution = RewardDistribution<ValueType>;
     using Representation = typename RewardDistributionOptions::Representation;
 
-    explicit RewardDistributionBuilder(RewardDistributionOptions const& options) : lowerRewardBound(0), upperRewardBound(options.getCategoricalUpperRewardBound()) {
+    explicit RewardDistributionBuilder(RewardDistributionOptions const& options)
+        : lowerRewardBound(0), upperRewardBound(options.getCategoricalUpperRewardBound()) {
         STORM_LOG_THROW(options.representation != Representation::Quantile, storm::exceptions::NotSupportedException,
                         "Quantile reward distributions are not implemented yet.");
         STORM_LOG_THROW(options.representation == Representation::Categorical, storm::exceptions::InvalidArgumentException,

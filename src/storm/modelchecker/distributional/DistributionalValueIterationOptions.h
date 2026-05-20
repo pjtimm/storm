@@ -30,9 +30,14 @@ struct DistributionalValueIterationOptions {
     }
 
     static DistributionalValueIterationOptions fromSettings(storm::settings::modules::DistributionalSettings const& settings) {
-        DistributionalValueIterationOptions options{convertRepresentation(settings.getRepresentation()), settings.getNumberOfAtoms(),
-                                                    settings.getRewardStepSize(), settings.getPrecision(), settings.getMaximalIterationCount(),
-                                                    convertObjective(settings.getObjective()), settings.getAlpha(), settings.getNumberOfBudgetAtoms()};
+        DistributionalValueIterationOptions options{convertRepresentation(settings.getRepresentation()),
+                                                    settings.getNumberOfAtoms(),
+                                                    settings.getRewardStepSize(),
+                                                    settings.getPrecision(),
+                                                    settings.getMaximalIterationCount(),
+                                                    convertObjective(settings.getObjective()),
+                                                    settings.getAlpha(),
+                                                    settings.getNumberOfBudgetAtoms()};
         options.validate();
         return options;
     }
@@ -45,8 +50,7 @@ struct DistributionalValueIterationOptions {
                         "Distributional value iteration does not support quantile reward distributions yet.");
         STORM_LOG_THROW(alpha > 0.0 && alpha < 1.0, storm::exceptions::NotSupportedException,
                         "Distributional CVaR requires alpha to be in the interval (0, 1).");
-        STORM_LOG_THROW(budgetAtoms > 0, storm::exceptions::NotSupportedException,
-                        "Distributional CVaR requires a positive budget atom count.");
+        STORM_LOG_THROW(budgetAtoms > 0, storm::exceptions::NotSupportedException, "Distributional CVaR requires a positive budget atom count.");
     }
 
    private:

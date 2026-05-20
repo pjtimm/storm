@@ -39,9 +39,9 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
 
     switch (options.objective) {
         case DistributionalValueIterationOptions::Objective::RiskNeutral: {
-            SparseMdpRiskNeutralObjective<typename SparseModelType::ValueType> objective(
-                preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
-                preprocessorResult.properStates, options);
+            SparseMdpRiskNeutralObjective<typename SparseModelType::ValueType> objective(preprocessorResult.targetAbsorbingTransitionMatrix,
+                                                                                         preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
+                                                                                         preprocessorResult.properStates, options);
             auto result = objective.computeExpectedRewardOptimalDistributions();
             return std::make_unique<ExplicitDistributionalCheckResult<SolutionType>>(std::move(result.distributions),
                                                                                      std::move(result.finiteDistributionStates));
@@ -51,9 +51,9 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
                 preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
                 preprocessorResult.properStates, preprocessorResult.initialState, options.budgetAtoms);
             auto cvarPreprocessorResult = cvarPreprocessor.computeRewardBounds();
-            SparseMdpCvarObjective<typename SparseModelType::ValueType> objective(
-                preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
-                preprocessorResult.properStates, options, cvarPreprocessorResult);
+            SparseMdpCvarObjective<typename SparseModelType::ValueType> objective(preprocessorResult.targetAbsorbingTransitionMatrix,
+                                                                                  preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
+                                                                                  preprocessorResult.properStates, options, cvarPreprocessorResult);
             auto result = objective.computeCvarOptimalDistribution();
             return std::make_unique<ExplicitDistributionalCheckResult<SolutionType>>(std::move(result.distributions));
         }

@@ -12,7 +12,7 @@
 namespace {
 
 storm::modelchecker::distributional::DistributionalValueIterationOptions makeCvarOptions(uint64_t atoms = 128, uint64_t stepSize = 1,
-                                                                                        uint64_t budgetAtoms = 3) {
+                                                                                         uint64_t budgetAtoms = 3) {
     storm::modelchecker::distributional::DistributionalValueIterationOptions options{
         storm::modelchecker::distributional::RewardDistributionRepresentation::Categorical, atoms, stepSize, 1e-10, 10000};
     options.objective = storm::modelchecker::distributional::DistributionalValueIterationOptions::Objective::Cvar;
@@ -104,12 +104,12 @@ TEST(SparseMdpCvarObjectiveTest, AlphaAffectsSelectedInitialBudget) {
 
     options.alpha = 0.25;
     storm::modelchecker::distributional::SparseMdpCvarObjective<double> smallTailObjective(matrix, rewards, targetStates, properStates, options,
-                                                                                          preprocessorResult);
+                                                                                           preprocessorResult);
     auto smallTailResult = smallTailObjective.computeCvarOptimalDistribution();
 
     options.alpha = 0.75;
     storm::modelchecker::distributional::SparseMdpCvarObjective<double> largeTailObjective(matrix, rewards, targetStates, properStates, options,
-                                                                                          preprocessorResult);
+                                                                                           preprocessorResult);
     auto largeTailResult = largeTailObjective.computeCvarOptimalDistribution();
 
     EXPECT_DOUBLE_EQ(4.0, smallTailResult.distributions.at(0).getProjectedExpectedValue());

@@ -44,10 +44,8 @@ class SparseMdpCvarPreprocessor {
 
         uint64_t getNextBudgetIndex(uint64_t currentBudgetIndex, ValueType const& reward) const {
             STORM_LOG_THROW(currentBudgetIndex < budgetGrid.size(), storm::exceptions::InvalidArgumentException,
-                            "CVaR current budget index " << currentBudgetIndex << " is out of range for a grid with " << budgetGrid.size()
-                                                         << " atoms.");
-            STORM_LOG_THROW(reward >= storm::utility::zero<ValueType>() && storm::utility::isInteger(reward),
-                            storm::exceptions::InvalidArgumentException,
+                            "CVaR current budget index " << currentBudgetIndex << " is out of range for a grid with " << budgetGrid.size() << " atoms.");
+            STORM_LOG_THROW(reward >= storm::utility::zero<ValueType>() && storm::utility::isInteger(reward), storm::exceptions::InvalidArgumentException,
                             "CVaR budget transitions require a non-negative integer reward, but got " << reward << ".");
 
             ValueType const nextBudget = budgetGrid[currentBudgetIndex] - reward;
@@ -73,16 +71,14 @@ class SparseMdpCvarPreprocessor {
                         "CVaR preprocessing expects one normalized state-action reward per nondeterministic choice, but got "
                             << stateActionRewards.size() << " rewards for " << transitionMatrix.getRowCount() << " choices.");
         STORM_LOG_THROW(transitionMatrix.getRowGroupCount() == targetStates.size(), storm::exceptions::InvalidArgumentException,
-                        "CVaR preprocessing expects one target-state bit per state, but got a vector of size " << targetStates.size() << " for "
-                                                                                                               << transitionMatrix.getRowGroupCount()
-                                                                                                               << " states.");
+                        "CVaR preprocessing expects one target-state bit per state, but got a vector of size "
+                            << targetStates.size() << " for " << transitionMatrix.getRowGroupCount() << " states.");
         STORM_LOG_THROW(transitionMatrix.getRowGroupCount() == properStates.size(), storm::exceptions::InvalidArgumentException,
-                        "CVaR preprocessing expects one proper-state bit per state, but got a vector of size " << properStates.size() << " for "
-                                                                                                               << transitionMatrix.getRowGroupCount()
-                                                                                                               << " states.");
-        STORM_LOG_THROW(initialState < transitionMatrix.getRowGroupCount(), storm::exceptions::InvalidArgumentException,
-                        "CVaR preprocessing received initial state " << initialState << ", but the model has " << transitionMatrix.getRowGroupCount()
-                                                                     << " states.");
+                        "CVaR preprocessing expects one proper-state bit per state, but got a vector of size "
+                            << properStates.size() << " for " << transitionMatrix.getRowGroupCount() << " states.");
+        STORM_LOG_THROW(
+            initialState < transitionMatrix.getRowGroupCount(), storm::exceptions::InvalidArgumentException,
+            "CVaR preprocessing received initial state " << initialState << ", but the model has " << transitionMatrix.getRowGroupCount() << " states.");
         STORM_LOG_THROW(requestedBudgetAtoms > 0, storm::exceptions::InvalidArgumentException,
                         "CVaR preprocessing requires a positive requested budget atom count.");
         STORM_LOG_THROW(properStates.full(), storm::exceptions::NotSupportedException,

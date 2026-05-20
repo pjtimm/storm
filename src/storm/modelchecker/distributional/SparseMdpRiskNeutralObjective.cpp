@@ -16,9 +16,11 @@ namespace modelchecker {
 namespace distributional {
 
 template<typename ValueType>
-SparseMdpRiskNeutralObjective<ValueType>::SparseMdpRiskNeutralObjective(
-    storm::storage::SparseMatrix<ValueType> const& transitionMatrix, std::vector<ValueType> const& stateActionRewards,
-    storm::storage::BitVector const& targetStates, storm::storage::BitVector const& properStates, DistributionalValueIterationOptions const& options)
+SparseMdpRiskNeutralObjective<ValueType>::SparseMdpRiskNeutralObjective(storm::storage::SparseMatrix<ValueType> const& transitionMatrix,
+                                                                        std::vector<ValueType> const& stateActionRewards,
+                                                                        storm::storage::BitVector const& targetStates,
+                                                                        storm::storage::BitVector const& properStates,
+                                                                        DistributionalValueIterationOptions const& options)
     : transitionMatrix(transitionMatrix),
       targetStates(targetStates),
       properStates(properStates),
