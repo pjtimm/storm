@@ -1,6 +1,5 @@
 #include "storm/modelchecker/distributional/SparseMdpCvarObjective.h"
 
-#include <algorithm>
 #include <deque>
 #include <limits>
 #include <utility>
@@ -9,7 +8,6 @@
 
 #include "storm/adapters/RationalNumberAdapter.h"
 #include "storm/exceptions/InvalidArgumentException.h"
-#include "storm/exceptions/NoConvergenceException.h"
 #include "storm/exceptions/UnexpectedException.h"
 #include "storm/utility/constants.h"
 #include "storm/utility/macros.h"
@@ -122,13 +120,15 @@ ValueType SparseMdpCvarObjective<ValueType>::computeTailExpectation(Distribution
 template<typename ValueType>
 typename SparseMdpCvarObjective<ValueType>::ReachableProductStates SparseMdpCvarObjective<ValueType>::computeReachableProductStates() const {
     ReachableProductStates result;
+    result.indicesByState.resize(stateCount);
     std::deque<uint64_t> worklist;
     result.indices.reserve(budgetCount);
 
-    auto addProductState = [&result, &worklist](uint64_t productState) {
+    auto addProductState = [this, &result, &worklist](uint64_t productState) {
         auto const inserted = result.indices.emplace(productState, result.states.size());
         if (inserted.second) {
             result.states.push_back(productState);
+            result.indicesByState[getOriginalState(productState)].push_back(inserted.first->second);
             worklist.push_back(productState);
         }
     };
@@ -167,6 +167,37 @@ typename SparseMdpCvarObjective<ValueType>::ReachableProductStates SparseMdpCvar
 }
 
 template<typename ValueType>
+void SparseMdpCvarObjective<ValueType>::runTopologicalViSweep(ReachableProductStates const& productStates,
+                                                              std::vector<Distribution>& distributions) const {
+    for (auto stateIt = preprocessorResult.topologicalOrder.rbegin(); stateIt != preprocessorResult.topologicalOrder.rend(); ++stateIt) {
+        uint64_t const state = *stateIt;
+        for (auto const productStateIndex : productStates.indicesByState[state]) {
+            uint64_t const productState = productStates.states[productStateIndex];
+            uint64_t const budgetIndex = getBudgetIndex(productState);
+            ValueType const& budget = preprocessorResult.getBudgetValue(budgetIndex);
+
+            boost::optional<Distribution> bestDistribution;
+            ValueType bestTailExpectation = storm::utility::zero<ValueType>();
+            for (auto const choice : transitionMatrix.getRowGroupIndices(state)) {
+                if (!isChoiceAdmissible(choice)) {
+                    continue;
+                }
+                Distribution choiceDistribution = buildProductChoiceDistribution(productStates, distributions, choice, budgetIndex);
+                ValueType const choiceTailExpectation = computeTailExpectation(choiceDistribution, budget);
+                if (!bestDistribution || choiceTailExpectation < bestTailExpectation) {
+                    bestTailExpectation = choiceTailExpectation;
+                    bestDistribution = std::move(choiceDistribution);
+                }
+            }
+
+            STORM_LOG_THROW(bestDistribution, storm::exceptions::UnexpectedException,
+                            "Expected at least one admissible CVaR product choice for original state " << state << ".");
+            distributions[productStateIndex] = std::move(bestDistribution.get());
+        }
+    }
+}
+
+template<typename ValueType>
 typename SparseMdpCvarObjective<ValueType>::Result SparseMdpCvarObjective<ValueType>::selectInitialDistribution(
     ReachableProductStates const& productStates, std::vector<Distribution> const& distributions) const {
     uint64_t const initialState = preprocessorResult.initialState;
@@ -200,7 +231,7 @@ template<typename ValueType>
 typename SparseMdpCvarObjective<ValueType>::Result SparseMdpCvarObjective<ValueType>::computeCvarOptimalDistribution() const {
     ReachableProductStates const productStates = computeReachableProductStates();
     STORM_LOG_THROW(!productStates.states.empty(), storm::exceptions::UnexpectedException,
-                    "Expected at least one reachable CVaR product state for value iteration.");
+                    "Expected at least one reachable CVaR product state for the topological value-iteration sweep.");
 
     std::vector<Distribution> distributions;
     distributions.reserve(productStates.states.size());
@@ -209,50 +240,9 @@ typename SparseMdpCvarObjective<ValueType>::Result SparseMdpCvarObjective<ValueT
         uint64_t const state = getOriginalState(productState);
         distributions.push_back(targetStates.get(state) ? Distribution::pointMass(0) : Distribution::categoricalTail(rewardDistributionOptions));
     }
-    std::vector<Distribution> newDistributions = distributions;
 
-    for (uint64_t iteration = 0; iteration < options.maximalIterations; ++iteration) {
-        ValueType maximalSquaredDistance = storm::utility::zero<ValueType>();
-        for (uint64_t productStateIndex = 0; productStateIndex < productStates.states.size(); ++productStateIndex) {
-            uint64_t const productState = productStates.states[productStateIndex];
-            uint64_t const state = getOriginalState(productState);
-            if (targetStates.get(state)) {
-                continue;
-            }
-
-            uint64_t const budgetIndex = getBudgetIndex(productState);
-            ValueType const& budget = preprocessorResult.getBudgetValue(budgetIndex);
-            boost::optional<Distribution> bestDistribution;
-            ValueType bestTailExpectation = storm::utility::zero<ValueType>();
-            for (auto const choice : transitionMatrix.getRowGroupIndices(state)) {
-                if (!isChoiceAdmissible(choice)) {
-                    continue;
-                }
-                Distribution choiceDistribution = buildProductChoiceDistribution(productStates, distributions, choice, budgetIndex);
-                ValueType const choiceTailExpectation = computeTailExpectation(choiceDistribution, budget);
-                if (!bestDistribution || choiceTailExpectation < bestTailExpectation) {
-                    bestTailExpectation = choiceTailExpectation;
-                    bestDistribution = std::move(choiceDistribution);
-                }
-            }
-
-            STORM_LOG_THROW(bestDistribution, storm::exceptions::UnexpectedException,
-                            "Expected at least one admissible CVaR product choice for original state " << state << ".");
-            maximalSquaredDistance =
-                std::max(maximalSquaredDistance, viHelper.computeCategoricalSquaredDistance(distributions[productStateIndex], bestDistribution.get()));
-            newDistributions[productStateIndex] = std::move(bestDistribution.get());
-        }
-        distributions.swap(newDistributions);
-
-        ValueType const precision = storm::utility::convertNumber<ValueType>(options.precision);
-        if (maximalSquaredDistance <= precision * precision) {
-            return selectInitialDistribution(productStates, distributions);
-        }
-    }
-
-    STORM_LOG_THROW(false, storm::exceptions::NoConvergenceException,
-                    "CVaR distributional value iteration did not converge within " << options.maximalIterations << " iterations.");
-    return {};
+    runTopologicalViSweep(productStates, distributions);
+    return selectInitialDistribution(productStates, distributions);
 }
 
 template<typename ValueType>
@@ -282,6 +272,24 @@ void SparseMdpCvarObjective<ValueType>::validateDimensions() const {
     STORM_LOG_THROW(stateCount <= std::numeric_limits<uint64_t>::max() / budgetCount, storm::exceptions::InvalidArgumentException,
                     "CVaR product objective state space size overflows uint64_t for " << stateCount << " states and " << budgetCount
                                                                                      << " budget atoms.");
+
+    storm::storage::BitVector topologicalStates(stateCount, false);
+    for (auto const state : preprocessorResult.topologicalOrder) {
+        STORM_LOG_THROW(state < stateCount, storm::exceptions::InvalidArgumentException,
+                        "CVaR product objective received topological-order state " << state << ", but the model has " << stateCount << " states.");
+        STORM_LOG_THROW(properStates.get(state) && !targetStates.get(state), storm::exceptions::InvalidArgumentException,
+                        "CVaR product objective topological order contains state " << state << ", but the topological order should contain only "
+                                                                                  << "proper non-target states.");
+        STORM_LOG_THROW(!topologicalStates.get(state), storm::exceptions::InvalidArgumentException,
+                        "CVaR product objective topological order contains state " << state << " more than once.");
+        topologicalStates.set(state, true);
+    }
+    for (uint64_t state = 0; state < stateCount; ++state) {
+        if (properStates.get(state) && !targetStates.get(state)) {
+            STORM_LOG_THROW(topologicalStates.get(state), storm::exceptions::InvalidArgumentException,
+                            "CVaR product objective topological order is missing proper non-target state " << state << ".");
+        }
+    }
 }
 
 template class SparseMdpCvarObjective<double>;

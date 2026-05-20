@@ -47,6 +47,7 @@ class SparseMdpCvarObjective {
     struct ReachableProductStates {
         std::vector<uint64_t> states;
         std::unordered_map<uint64_t, uint64_t> indices;
+        std::vector<std::vector<uint64_t>> indicesByState;
     };
 
     void validateDimensions() const;
@@ -56,6 +57,7 @@ class SparseMdpCvarObjective {
                                                 uint64_t choice, uint64_t budgetIndex) const;
     ValueType computeTailExpectation(Distribution const& distribution, ValueType const& budget) const;
     ReachableProductStates computeReachableProductStates() const;
+    void runTopologicalViSweep(ReachableProductStates const& productStates, std::vector<Distribution>& distributions) const;
     Result selectInitialDistribution(ReachableProductStates const& productStates, std::vector<Distribution> const& distributions) const;
 
     storm::storage::SparseMatrix<ValueType> const& transitionMatrix;

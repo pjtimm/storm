@@ -55,7 +55,7 @@ TEST(SparseMdpCvarObjectiveTest, ProductIndexRoundTrips) {
     }
 }
 
-TEST(SparseMdpCvarObjectiveTest, ReturnsOnlyInitialStateDistribution) {
+TEST(SparseMdpCvarObjectiveTest, ReturnsOnlyInitialStateDistributionFromTopologicalSweep) {
     storm::storage::SparseMatrixBuilder<double> builder(3, 2, 3, true, true, 2);
     builder.newRowGroup(0);
     builder.addNextValue(0, 1, 1.0);
@@ -68,6 +68,7 @@ TEST(SparseMdpCvarObjectiveTest, ReturnsOnlyInitialStateDistribution) {
     storm::storage::BitVector targetStates(2, std::vector<uint64_t>{1});
     storm::storage::BitVector properStates(2, true);
     auto options = makeCvarOptions(21, 1, 4);
+    options.maximalIterations = 0;
 
     storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, options.budgetAtoms);
     auto preprocessorResult = preprocessor.computeRewardBounds();
