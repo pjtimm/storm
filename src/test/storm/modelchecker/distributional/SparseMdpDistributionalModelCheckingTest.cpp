@@ -166,7 +166,7 @@ label "target" = s=6;
 }
 
 std::unique_ptr<storm::modelchecker::CheckResult> checkDistributionalFromStrings(std::string const& programString, std::string const& formulaString,
-                                                                                  std::string const& settingsString) {
+                                                                                 std::string const& settingsString) {
     DistributionalSettingsScope settings;
     settings.apply(settingsString);
 
