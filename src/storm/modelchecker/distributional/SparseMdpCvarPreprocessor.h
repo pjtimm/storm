@@ -177,20 +177,26 @@ class SparseMdpCvarPreprocessor {
                                                         std::vector<ValueType> const& upperRewardBounds) const {
         ValueType successorLowerBound = storm::utility::zero<ValueType>();
         ValueType successorUpperBound = storm::utility::zero<ValueType>();
-        bool foundNonTargetSuccessor = false;
+        bool foundSuccessor = false;
         for (auto const& entry : transitionMatrix.getRow(choice)) {
-            if (storm::utility::isZero(entry.getValue()) || targetStates.get(entry.getColumn())) {
+            if (storm::utility::isZero(entry.getValue())) {
                 continue;
             }
-            STORM_LOG_THROW(properNonTargetStates.get(entry.getColumn()), storm::exceptions::UnexpectedException,
-                            "Encountered an inadmissible successor while computing CVaR reward bounds.");
-            if (!foundNonTargetSuccessor) {
-                successorLowerBound = lowerRewardBounds[entry.getColumn()];
-                successorUpperBound = upperRewardBounds[entry.getColumn()];
-                foundNonTargetSuccessor = true;
+            ValueType currentLowerBound = storm::utility::zero<ValueType>();
+            ValueType currentUpperBound = storm::utility::zero<ValueType>();
+            if (!targetStates.get(entry.getColumn())) {
+                STORM_LOG_THROW(properNonTargetStates.get(entry.getColumn()), storm::exceptions::UnexpectedException,
+                                "Encountered an inadmissible successor while computing CVaR reward bounds.");
+                currentLowerBound = lowerRewardBounds[entry.getColumn()];
+                currentUpperBound = upperRewardBounds[entry.getColumn()];
+            }
+            if (!foundSuccessor) {
+                successorLowerBound = currentLowerBound;
+                successorUpperBound = currentUpperBound;
+                foundSuccessor = true;
             } else {
-                successorLowerBound = std::min(successorLowerBound, lowerRewardBounds[entry.getColumn()]);
-                successorUpperBound = std::max(successorUpperBound, upperRewardBounds[entry.getColumn()]);
+                successorLowerBound = std::min(successorLowerBound, currentLowerBound);
+                successorUpperBound = std::max(successorUpperBound, currentUpperBound);
             }
         }
 

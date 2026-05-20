@@ -1,16 +1,17 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <unordered_map>
 #include <vector>
 
-#include "storm/exceptions/InvalidArgumentException.h"
 #include "storm/modelchecker/distributional/DistributionalValueIterationOptions.h"
 #include "storm/modelchecker/distributional/RewardDistribution.h"
+#include "storm/modelchecker/distributional/SparseMdpDistributionalViHelper.h"
 #include "storm/modelchecker/distributional/SparseMdpCvarPreprocessor.h"
 #include "storm/storage/BitVector.h"
 #include "storm/storage/SparseMatrix.h"
-#include "storm/utility/macros.h"
+#include "storm/storage/sparse/StateType.h"
 
 namespace storm {
 namespace modelchecker {
@@ -20,29 +21,11 @@ template<typename ValueType>
 class SparseMdpCvarObjective {
    public:
     using Distribution = RewardDistribution<ValueType>;
+    using DistributionMap = std::map<storm::storage::sparse::state_type, Distribution>;
     using PreprocessorResult = typename SparseMdpCvarPreprocessor<ValueType>::Result;
 
-    class ProductDistributionCache {
-       public:
-        uint64_t getCachedDistributionCount() const {
-            return distributions.size();
-        }
-
-        bool hasDistribution(uint64_t productState) const {
-            return distributions.find(productState) != distributions.end();
-        }
-
-        Distribution const& getDistribution(uint64_t productState) const {
-            auto const it = distributions.find(productState);
-            STORM_LOG_THROW(it != distributions.end(), storm::exceptions::InvalidArgumentException,
-                            "No cached CVaR product distribution exists for product state " << productState << ".");
-            return it->second;
-        }
-
-       private:
-        friend class SparseMdpCvarObjective<ValueType>;
-
-        std::unordered_map<uint64_t, Distribution> distributions;
+    struct Result {
+        DistributionMap distributions;
     };
 
     SparseMdpCvarObjective(storm::storage::SparseMatrix<ValueType> const& transitionMatrix, std::vector<ValueType> const& stateActionRewards,
@@ -58,17 +41,29 @@ class SparseMdpCvarObjective {
     uint64_t getBudgetIndex(uint64_t productState) const;
 
     bool isFiniteProductState(uint64_t productState) const;
-    ProductDistributionCache createProductDistributionCache() const;
-    Distribution const& getOrInitializeProductDistribution(ProductDistributionCache& cache, uint64_t productState) const;
+    Result computeCvarOptimalDistribution() const;
 
    private:
+    struct ReachableProductStates {
+        std::vector<uint64_t> states;
+        std::unordered_map<uint64_t, uint64_t> indices;
+    };
+
     void validateDimensions() const;
+    bool isChoiceAdmissible(uint64_t choice) const;
+    uint64_t getChoiceRewardAsInteger(uint64_t choice) const;
+    Distribution buildProductChoiceDistribution(ReachableProductStates const& productStates, std::vector<Distribution> const& previousDistributions,
+                                                uint64_t choice, uint64_t budgetIndex) const;
+    ValueType computeTailExpectation(Distribution const& distribution, ValueType const& budget) const;
+    ReachableProductStates computeReachableProductStates() const;
+    Result selectInitialDistribution(ReachableProductStates const& productStates, std::vector<Distribution> const& distributions) const;
 
     storm::storage::SparseMatrix<ValueType> const& transitionMatrix;
     std::vector<ValueType> const& stateActionRewards;
     storm::storage::BitVector targetStates;
     storm::storage::BitVector properStates;
     DistributionalValueIterationOptions options;
+    SparseMdpDistributionalViHelper<ValueType> viHelper;
     PreprocessorResult const& preprocessorResult;
     uint64_t stateCount;
     uint64_t budgetCount;

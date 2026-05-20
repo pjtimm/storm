@@ -2,7 +2,6 @@
 
 #include "storm/adapters/RationalNumberAdapter.h"
 #include "storm/exceptions/InvalidPropertyException.h"
-#include "storm/exceptions/NotImplementedException.h"
 #include "storm/exceptions/NotSupportedException.h"
 #include "storm/modelchecker/CheckTask.h"
 #include "storm/modelchecker/distributional/DistributionalReachabilityPreprocessor.h"
@@ -55,9 +54,8 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
             SparseMdpCvarObjective<typename SparseModelType::ValueType> objective(
                 preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
                 preprocessorResult.properStates, options, cvarPreprocessorResult);
-            static_cast<void>(objective);
-            STORM_LOG_THROW(false, storm::exceptions::NotImplementedException,
-                            "Distributional CVaR model checking is not implemented yet beyond CVaR product-state setup.");
+            auto result = objective.computeCvarOptimalDistribution();
+            return std::make_unique<ExplicitDistributionalCheckResult<SolutionType>>(std::move(result.distributions));
         }
     }
     STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "Unknown distributional objective.");
