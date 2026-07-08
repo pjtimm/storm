@@ -22,6 +22,7 @@
 #include "storm/modelchecker/CheckTask.h"
 #include "storm/modelchecker/distributional/DistributionalReachabilityPreprocessor.h"
 #include "storm/modelchecker/distributional/DistributionalRewardReachabilityQuery.h"
+#include "storm/modelchecker/distributional/DistributionalValueIterationOptions.h"
 #include "storm/modelchecker/prctl/SparseMdpPrctlModelChecker.h"
 #include "storm/modelchecker/results/ExplicitDistributionalCheckResult.h"
 #include "storm/models/sparse/Mdp.h"
@@ -30,6 +31,7 @@
 #include "storm/settings/SettingMemento.h"
 #include "storm/settings/SettingsManager.h"
 #include "storm/settings/modules/DistributionalSettings.h"
+#include "storm/solver/OptimizationDirection.h"
 #include "storm/storage/BitVector.h"
 #include "storm/storage/SparseMatrix.h"
 
@@ -48,6 +50,7 @@ class DistributionalSettingsScope {
         mementos.push_back(settings.overrideOption("stepsize", false));
         mementos.push_back(settings.overrideOption("budgetatoms", false));
         mementos.push_back(settings.overrideOption("alpha", false));
+        mementos.push_back(settings.overrideOption("interpretation", false));
     }
 
     ~DistributionalSettingsScope() {
@@ -180,6 +183,29 @@ std::unique_ptr<storm::modelchecker::CheckResult> checkDistributionalFromStrings
     return checker.check(env, *distributionalFormula);
 }
 
+void expectInitialDistribution(std::unique_ptr<storm::modelchecker::CheckResult> const& result, double expectedValue,
+                               std::string const& expectedDistributionText) {
+    ASSERT_TRUE(result->isExplicitDistributionalCheckResult());
+    auto const& distributionalResult = result->asExplicitDistributionalCheckResult<double>();
+    EXPECT_FALSE(distributionalResult.isResultForAllStates());
+    ASSERT_TRUE(distributionalResult.hasFiniteDistribution(0));
+    EXPECT_NEAR(expectedValue, distributionalResult.getExpectedValue(0), 1e-8);
+
+    std::stringstream stream;
+    stream << *result;
+    EXPECT_NE(std::string::npos, stream.str().find(expectedDistributionText));
+}
+
+void expectParsedInterpretation(std::string const& settingsString,
+                                storm::modelchecker::distributional::DistributionalCvarInterpretationSelection expectedInterpretation) {
+    DistributionalSettingsScope settingsScope;
+    auto& settings = dynamic_cast<storm::settings::modules::DistributionalSettings&>(
+        storm::settings::mutableManager().getModule(storm::settings::modules::DistributionalSettings::moduleName));
+
+    settingsScope.apply(settingsString);
+    EXPECT_EQ(expectedInterpretation, settings.getCvarInterpretationSelection());
+}
+
 }  // namespace
 
 TEST(SparseMdpDistributionalPreprocessorTest, NormalizesRewardsAndMakesTargetsAbsorbing) {
@@ -254,6 +280,30 @@ TEST(SparseMdpDistributionalModelCheckingTest, RejectsUnsupportedOptimizationAnd
     STORM_SILENT_EXPECT_THROW(checker.check(env, schedulerTask), storm::exceptions::NotSupportedException);
 }
 
+TEST(SparseMdpDistributionalSettingsTest, ParsesCvarInterpretationSelection) {
+    expectParsedInterpretation("--distributional:interpretation auto",
+                               storm::modelchecker::distributional::DistributionalCvarInterpretationSelection::Auto);
+    expectParsedInterpretation("--distributional:interpretation cost",
+                               storm::modelchecker::distributional::DistributionalCvarInterpretationSelection::Cost);
+    expectParsedInterpretation("--distributional:interpretation reward",
+                               storm::modelchecker::distributional::DistributionalCvarInterpretationSelection::Reward);
+}
+
+TEST(SparseMdpDistributionalSettingsTest, ResolvesAutoCvarInterpretationFromOptimizationDirection) {
+    DistributionalSettingsScope settingsScope;
+    auto& settings = dynamic_cast<storm::settings::modules::DistributionalSettings&>(
+        storm::settings::mutableManager().getModule(storm::settings::modules::DistributionalSettings::moduleName));
+
+    settingsScope.apply("--distributional:objective cvar --distributional:interpretation auto");
+    auto minOptions = storm::modelchecker::distributional::DistributionalValueIterationOptions::fromSettings(
+        settings, storm::solver::OptimizationDirection::Minimize);
+    EXPECT_EQ(storm::modelchecker::distributional::DistributionalCvarInterpretation::Cost, minOptions.cvarInterpretation);
+
+    auto maxOptions = storm::modelchecker::distributional::DistributionalValueIterationOptions::fromSettings(
+        settings, storm::solver::OptimizationDirection::Maximize);
+    EXPECT_EQ(storm::modelchecker::distributional::DistributionalCvarInterpretation::Reward, maxOptions.cvarInterpretation);
+}
+
 TEST(SparseMdpDistributionalModelCheckingTest, ComputesRiskNeutralResultFromPrismStrings) {
     auto result = checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}min=? [ F \"target\" ];",
                                                  "--distributional:objective risk-neutral --distributional:atoms 41 --distributional:stepsize 1");
@@ -282,6 +332,23 @@ TEST(SparseMdpDistributionalModelCheckingTest, ComputesCvarResultFromPrismString
     std::stringstream stream;
     stream << *result;
     EXPECT_NE(std::string::npos, stream.str().find("{6: 0.5, 7: 0.5}"));
+}
+
+TEST(SparseMdpDistributionalModelCheckingTest, ComputesCvarResultsForExplicitInterpretationsFromPrismStrings) {
+    std::string const cvarSettings =
+        "--distributional:objective cvar --distributional:alpha 0.25 --distributional:budgetatoms 29 "
+        "--distributional:atoms 41 --distributional:stepsize 1";
+
+    auto maxRewardAuto = checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}max=? [ F \"target\" ];", cvarSettings);
+    expectInitialDistribution(maxRewardAuto, 6.5, "{6: 0.5, 7: 0.5}");
+
+    auto maxCost = checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}max=? [ F \"target\" ];",
+                                                  cvarSettings + " --distributional:interpretation cost");
+    expectInitialDistribution(maxCost, 6.2, "{2: 0.85, 30: 0.15}");
+
+    auto minReward = checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}min=? [ F \"target\" ];",
+                                                    cvarSettings + " --distributional:interpretation reward");
+    expectInitialDistribution(minReward, 6.2, "{2: 0.85, 30: 0.15}");
 }
 
 TEST(SparseMdpDistributionalModelCheckingTest, RejectsCvarCyclicProperSubsystemFromPrismString) {

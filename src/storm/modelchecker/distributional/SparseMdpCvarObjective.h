@@ -55,7 +55,10 @@ class SparseMdpCvarObjective {
     uint64_t getChoiceRewardAsInteger(uint64_t choice) const;
     Distribution buildProductChoiceDistribution(ReachableProductStates const& productStates, std::vector<Distribution> const& previousDistributions,
                                                 uint64_t choice, uint64_t budgetIndex) const;
-    ValueType computeTailExpectation(Distribution const& distribution, ValueType const& budget) const;
+    ValueType computeTailDistance(Distribution const& distribution, ValueType const& budget) const;
+    ValueType computeCvarValue(Distribution const& distribution, ValueType const& budget) const;
+    bool isBetterTailDistance(ValueType const& candidate, ValueType const& current) const;
+    bool isBetterCvarValue(ValueType const& candidate, ValueType const& current) const;
     ReachableProductStates computeReachableProductStates() const;
     void runTopologicalViSweep(ReachableProductStates const& productStates, std::vector<Distribution>& distributions) const;
     Result selectInitialDistribution(ReachableProductStates const& productStates, std::vector<Distribution> const& distributions) const;

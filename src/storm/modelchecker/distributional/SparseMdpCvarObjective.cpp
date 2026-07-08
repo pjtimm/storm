@@ -107,14 +107,39 @@ typename SparseMdpCvarObjective<ValueType>::Distribution SparseMdpCvarObjective<
 }
 
 template<typename ValueType>
-ValueType SparseMdpCvarObjective<ValueType>::computeTailExpectation(Distribution const& distribution, ValueType const& budget) const {
+ValueType SparseMdpCvarObjective<ValueType>::computeTailDistance(Distribution const& distribution, ValueType const& budget) const {
     ValueType result = storm::utility::zero<ValueType>();
-    distribution.forEachMass([&result, &budget](ValueType const& reward, ValueType const& mass) {
-        if (reward > budget) {
+    distribution.forEachMass([this, &result, &budget](ValueType const& reward, ValueType const& mass) {
+        if (options.cvarInterpretation == DistributionalCvarInterpretation::Cost && reward > budget) {
             result += (reward - budget) * mass;
+        } else if (options.cvarInterpretation == DistributionalCvarInterpretation::Reward && reward < budget) {
+            result += (budget - reward) * mass;
         }
     });
     return result;
+}
+
+template<typename ValueType>
+ValueType SparseMdpCvarObjective<ValueType>::computeCvarValue(Distribution const& distribution, ValueType const& budget) const {
+    ValueType const tailMass = storm::utility::convertNumber<ValueType>(options.alpha);
+    ValueType const tailDistance = computeTailDistance(distribution, budget);
+    if (options.cvarInterpretation == DistributionalCvarInterpretation::Reward) {
+        return budget - tailDistance / tailMass;
+    }
+    return budget + tailDistance / tailMass;
+}
+
+template<typename ValueType>
+bool SparseMdpCvarObjective<ValueType>::isBetterTailDistance(ValueType const& candidate, ValueType const& current) const {
+    bool const minimizeTailDistance =
+        (options.cvarInterpretation == DistributionalCvarInterpretation::Cost && storm::solver::minimize(options.optimizationDirection)) ||
+        (options.cvarInterpretation == DistributionalCvarInterpretation::Reward && storm::solver::maximize(options.optimizationDirection));
+    return minimizeTailDistance ? candidate < current : candidate > current;
+}
+
+template<typename ValueType>
+bool SparseMdpCvarObjective<ValueType>::isBetterCvarValue(ValueType const& candidate, ValueType const& current) const {
+    return storm::solver::minimize(options.optimizationDirection) ? candidate < current : candidate > current;
 }
 
 template<typename ValueType>
@@ -182,8 +207,8 @@ void SparseMdpCvarObjective<ValueType>::runTopologicalViSweep(ReachableProductSt
                     continue;
                 }
                 Distribution choiceDistribution = buildProductChoiceDistribution(productStates, distributions, choice, budgetIndex);
-                ValueType const choiceTailExpectation = computeTailExpectation(choiceDistribution, budget);
-                if (!bestDistribution || choiceTailExpectation < bestTailExpectation) {
+                ValueType const choiceTailExpectation = computeTailDistance(choiceDistribution, budget);
+                if (!bestDistribution || isBetterTailDistance(choiceTailExpectation, bestTailExpectation)) {
                     bestTailExpectation = choiceTailExpectation;
                     bestDistribution = std::move(choiceDistribution);
                 }
@@ -200,7 +225,6 @@ template<typename ValueType>
 typename SparseMdpCvarObjective<ValueType>::Result SparseMdpCvarObjective<ValueType>::selectInitialDistribution(
     ReachableProductStates const& productStates, std::vector<Distribution> const& distributions) const {
     uint64_t const initialState = preprocessorResult.initialState;
-    ValueType const tailMass = storm::utility::convertNumber<ValueType>(options.alpha);
 
     boost::optional<Distribution> selectedDistribution;
     ValueType bestCvarValue = storm::utility::zero<ValueType>();
@@ -211,8 +235,8 @@ typename SparseMdpCvarObjective<ValueType>::Result SparseMdpCvarObjective<ValueT
                         "CVaR initial budget product state " << productState << " is missing from the reachable product state set.");
         Distribution const& distribution = distributions[productStateIndex->second];
         ValueType const& budget = preprocessorResult.getBudgetValue(budgetIndex);
-        ValueType const cvarValue = budget + computeTailExpectation(distribution, budget) / tailMass;
-        if (!selectedDistribution || cvarValue < bestCvarValue) {
+        ValueType const cvarValue = computeCvarValue(distribution, budget);
+        if (!selectedDistribution || isBetterCvarValue(cvarValue, bestCvarValue)) {
             bestCvarValue = cvarValue;
             selectedDistribution = distribution;
         }

@@ -6,6 +6,7 @@
 #include "storm/modelchecker/distributional/DistributionalValueIterationOptions.h"
 #include "storm/modelchecker/distributional/SparseMdpCvarObjective.h"
 #include "storm/modelchecker/distributional/SparseMdpCvarPreprocessor.h"
+#include "storm/solver/OptimizationDirection.h"
 #include "storm/storage/BitVector.h"
 #include "storm/storage/SparseMatrix.h"
 
@@ -19,6 +20,43 @@ storm::modelchecker::distributional::DistributionalValueIterationOptions makeCva
     options.alpha = 0.5;
     options.budgetAtoms = budgetAtoms;
     return options;
+}
+
+double computeBranchingCvarSelectedExpectedValue(storm::solver::OptimizationDirection optimizationDirection,
+                                                 storm::modelchecker::distributional::DistributionalCvarInterpretation interpretation) {
+    storm::storage::SparseMatrixBuilder<double> builder(8, 7, 10, true, true, 7);
+    builder.newRowGroup(0);
+    builder.addNextValue(0, 1, 0.85);
+    builder.addNextValue(0, 2, 0.15);
+    builder.addNextValue(1, 3, 1.0);
+    builder.newRowGroup(2);
+    builder.addNextValue(2, 6, 1.0);
+    builder.newRowGroup(3);
+    builder.addNextValue(3, 6, 1.0);
+    builder.newRowGroup(4);
+    builder.addNextValue(4, 4, 1.0);
+    builder.newRowGroup(5);
+    builder.addNextValue(5, 5, 0.5);
+    builder.addNextValue(5, 6, 0.5);
+    builder.newRowGroup(6);
+    builder.addNextValue(6, 6, 1.0);
+    builder.newRowGroup(7);
+    builder.addNextValue(7, 6, 1.0);
+    auto matrix = builder.build();
+
+    std::vector<double> rewards = {0.0, 0.0, 2.0, 30.0, 3.0, 3.0, 1.0, 0.0};
+    storm::storage::BitVector targetStates(7, std::vector<uint64_t>{6});
+    storm::storage::BitVector properStates(7, true);
+    auto options = makeCvarOptions(41, 1, 29);
+    options.alpha = 0.25;
+    options.optimizationDirection = optimizationDirection;
+    options.cvarInterpretation = interpretation;
+
+    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, options.budgetAtoms);
+    auto preprocessorResult = preprocessor.computeRewardBounds();
+    storm::modelchecker::distributional::SparseMdpCvarObjective<double> objective(matrix, rewards, targetStates, properStates, options, preprocessorResult);
+    auto result = objective.computeCvarOptimalDistribution();
+    return result.distributions.at(0).getProjectedExpectedValue();
 }
 
 }  // namespace
@@ -114,4 +152,14 @@ TEST(SparseMdpCvarObjectiveTest, AlphaAffectsSelectedInitialBudget) {
 
     EXPECT_DOUBLE_EQ(4.0, smallTailResult.distributions.at(0).getProjectedExpectedValue());
     EXPECT_NEAR(2.0, largeTailResult.distributions.at(0).getProjectedExpectedValue(), 1e-12);
+}
+
+TEST(SparseMdpCvarObjectiveTest, SelectsDistributionAccordingToDirectionAndInterpretation) {
+    using storm::modelchecker::distributional::DistributionalCvarInterpretation;
+    using storm::solver::OptimizationDirection;
+
+    EXPECT_NEAR(6.5, computeBranchingCvarSelectedExpectedValue(OptimizationDirection::Minimize, DistributionalCvarInterpretation::Cost), 1e-12);
+    EXPECT_NEAR(6.2, computeBranchingCvarSelectedExpectedValue(OptimizationDirection::Maximize, DistributionalCvarInterpretation::Cost), 1e-12);
+    EXPECT_NEAR(6.5, computeBranchingCvarSelectedExpectedValue(OptimizationDirection::Maximize, DistributionalCvarInterpretation::Reward), 1e-12);
+    EXPECT_NEAR(6.2, computeBranchingCvarSelectedExpectedValue(OptimizationDirection::Minimize, DistributionalCvarInterpretation::Reward), 1e-12);
 }
