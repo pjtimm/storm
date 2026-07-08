@@ -3,9 +3,11 @@
 #include <cstdint>
 
 #include "storm/exceptions/NotSupportedException.h"
+#include "storm/modelchecker/distributional/DistributionalCvarInterpretation.h"
 #include "storm/modelchecker/distributional/RewardDistribution.h"
 #include "storm/modelchecker/distributional/RewardDistributionRepresentation.h"
 #include "storm/settings/modules/DistributionalSettings.h"
+#include "storm/solver/OptimizationDirection.h"
 #include "storm/utility/macros.h"
 
 namespace storm {
@@ -24,20 +26,27 @@ struct DistributionalValueIterationOptions {
     Objective objective = Objective::RiskNeutral;
     double alpha = 0.05;
     uint64_t budgetAtoms = 101;
+    storm::solver::OptimizationDirection optimizationDirection = storm::solver::OptimizationDirection::Minimize;
+    DistributionalCvarInterpretation cvarInterpretation = DistributionalCvarInterpretation::Cost;
 
     RewardDistributionOptions toRewardDistributionOptions() const {
         return RewardDistributionOptions{representation, atoms, stepSize};
     }
 
-    static DistributionalValueIterationOptions fromSettings(storm::settings::modules::DistributionalSettings const& settings) {
-        DistributionalValueIterationOptions options{convertRepresentation(settings.getRepresentation()),
-                                                    settings.getNumberOfAtoms(),
-                                                    settings.getRewardStepSize(),
-                                                    settings.getPrecision(),
-                                                    settings.getMaximalIterationCount(),
-                                                    convertObjective(settings.getObjective()),
-                                                    settings.getAlpha(),
-                                                    settings.getNumberOfBudgetAtoms()};
+    static DistributionalValueIterationOptions fromSettings(
+        storm::settings::modules::DistributionalSettings const& settings,
+        storm::solver::OptimizationDirection optimizationDirection = storm::solver::OptimizationDirection::Minimize) {
+        DistributionalValueIterationOptions options;
+        options.representation = convertRepresentation(settings.getRepresentation());
+        options.atoms = settings.getNumberOfAtoms();
+        options.stepSize = settings.getRewardStepSize();
+        options.precision = settings.getPrecision();
+        options.maximalIterations = settings.getMaximalIterationCount();
+        options.objective = convertObjective(settings.getObjective());
+        options.alpha = settings.getAlpha();
+        options.budgetAtoms = settings.getNumberOfBudgetAtoms();
+        options.optimizationDirection = optimizationDirection;
+        options.cvarInterpretation = resolveDistributionalCvarInterpretation(settings.getCvarInterpretationSelection(), optimizationDirection);
         options.validate();
         return options;
     }

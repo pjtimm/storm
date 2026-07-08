@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 
+#include "storm/modelchecker/distributional/DistributionalCvarInterpretation.h"
 #include "storm/settings/modules/ModuleSettings.h"
 
 namespace storm {
@@ -24,6 +25,7 @@ class DistributionalSettings : public ModuleSettings {
     uint64_t getMaximalIterationCount() const;
     uint64_t getNumberOfBudgetAtoms() const;
     double getAlpha() const;
+    storm::modelchecker::distributional::DistributionalCvarInterpretationSelection getCvarInterpretationSelection() const;
     bool check() const override;
 
     static const std::string moduleName;
@@ -37,6 +39,7 @@ class DistributionalSettings : public ModuleSettings {
     static const std::string maxIterationsOptionName;
     static const std::string budgetAtomsOptionName;
     static const std::string alphaOptionName;
+    static const std::string interpretationOptionName;
 };
 
 }  // namespace modules

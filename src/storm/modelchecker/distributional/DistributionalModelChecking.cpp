@@ -27,18 +27,18 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
                                                                 CheckTask<storm::logic::DistributionalFormula, SolutionType> const& checkTask) {
     STORM_LOG_THROW(checkTask.isOptimizationDirectionSet(), storm::exceptions::InvalidPropertyException,
                     "Distributional value iteration currently requires an explicit optimization direction.");
-    STORM_LOG_THROW(storm::solver::minimize(checkTask.getOptimizationDirection()), storm::exceptions::NotSupportedException,
-                    "Distributional value iteration currently supports only minimization objectives.");
     STORM_LOG_THROW(!checkTask.isProduceSchedulersSet(), storm::exceptions::NotSupportedException,
                     "Distributional value iteration does not support scheduler production yet.");
 
     auto query = parseDistributionalRewardReachabilityQuery(checkTask.getFormula());
     auto const& settings = storm::settings::getModule<storm::settings::modules::DistributionalSettings>();
-    auto options = DistributionalValueIterationOptions::fromSettings(settings);
-    auto preprocessorResult = DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, checkTask.isProduceSchedulersSet());
+    auto options = DistributionalValueIterationOptions::fromSettings(settings, checkTask.getOptimizationDirection());
 
     switch (options.objective) {
         case DistributionalValueIterationOptions::Objective::RiskNeutral: {
+            STORM_LOG_THROW(storm::solver::minimize(options.optimizationDirection), storm::exceptions::NotSupportedException,
+                            "Risk-neutral distributional value iteration currently supports only minimization objectives.");
+            auto preprocessorResult = DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, checkTask.isProduceSchedulersSet());
             SparseMdpRiskNeutralObjective<typename SparseModelType::ValueType> objective(preprocessorResult.targetAbsorbingTransitionMatrix,
                                                                                          preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
                                                                                          preprocessorResult.properStates, options);
@@ -47,6 +47,7 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
                                                                                      std::move(result.finiteDistributionStates));
         }
         case DistributionalValueIterationOptions::Objective::Cvar: {
+            auto preprocessorResult = DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, checkTask.isProduceSchedulersSet());
             SparseMdpCvarPreprocessor<typename SparseModelType::ValueType> cvarPreprocessor(
                 preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
                 preprocessorResult.properStates, preprocessorResult.initialState, options.budgetAtoms);

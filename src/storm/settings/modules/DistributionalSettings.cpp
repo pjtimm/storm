@@ -21,6 +21,7 @@ std::string const DistributionalSettings::precisionOptionName = "precision";
 std::string const DistributionalSettings::maxIterationsOptionName = "maxiter";
 std::string const DistributionalSettings::budgetAtomsOptionName = "budgetatoms";
 std::string const DistributionalSettings::alphaOptionName = "alpha";
+std::string const DistributionalSettings::interpretationOptionName = "interpretation";
 
 DistributionalSettings::DistributionalSettings() : ModuleSettings(moduleName) {
     std::vector<std::string> objectives = {"risk-neutral", "cvar"};
@@ -87,6 +88,15 @@ DistributionalSettings::DistributionalSettings() : ModuleSettings(moduleName) {
                              .setDefaultValueDouble(0.05)
                              .build())
             .build());
+    std::vector<std::string> interpretations = {"auto", "cost", "reward"};
+    this->addOption(storm::settings::OptionBuilder(moduleName, interpretationOptionName, true,
+                                                   "The CVaR interpretation to use for risk-sensitive distributional objectives.")
+                        .setIsAdvanced()
+                        .addArgument(storm::settings::ArgumentBuilder::createStringArgument("name", "The CVaR interpretation to use.")
+                                         .addValidatorString(ArgumentValidatorFactory::createMultipleChoiceValidator(interpretations))
+                                         .setDefaultValueString("auto")
+                                         .build())
+                        .build());
 }
 
 DistributionalSettings::Objective DistributionalSettings::getObjective() const {
@@ -131,6 +141,18 @@ uint64_t DistributionalSettings::getNumberOfBudgetAtoms() const {
 
 double DistributionalSettings::getAlpha() const {
     return this->getOption(alphaOptionName).getArgumentByName("value").getValueAsDouble();
+}
+
+storm::modelchecker::distributional::DistributionalCvarInterpretationSelection DistributionalSettings::getCvarInterpretationSelection() const {
+    std::string interpretation = this->getOption(interpretationOptionName).getArgumentByName("name").getValueAsString();
+    if (interpretation == "auto") {
+        return storm::modelchecker::distributional::DistributionalCvarInterpretationSelection::Auto;
+    } else if (interpretation == "cost") {
+        return storm::modelchecker::distributional::DistributionalCvarInterpretationSelection::Cost;
+    } else if (interpretation == "reward") {
+        return storm::modelchecker::distributional::DistributionalCvarInterpretationSelection::Reward;
+    }
+    STORM_LOG_THROW(false, storm::exceptions::IllegalArgumentValueException, "Unknown distributional CVaR interpretation '" << interpretation << "'.");
 }
 
 bool DistributionalSettings::check() const {
