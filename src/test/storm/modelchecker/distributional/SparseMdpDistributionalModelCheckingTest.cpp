@@ -281,10 +281,8 @@ TEST(SparseMdpDistributionalModelCheckingTest, RejectsUnsupportedOptimizationAnd
 }
 
 TEST(SparseMdpDistributionalSettingsTest, ParsesCvarInterpretationSelection) {
-    expectParsedInterpretation("--distributional:interpretation auto",
-                               storm::modelchecker::distributional::DistributionalCvarInterpretationSelection::Auto);
-    expectParsedInterpretation("--distributional:interpretation cost",
-                               storm::modelchecker::distributional::DistributionalCvarInterpretationSelection::Cost);
+    expectParsedInterpretation("--distributional:interpretation auto", storm::modelchecker::distributional::DistributionalCvarInterpretationSelection::Auto);
+    expectParsedInterpretation("--distributional:interpretation cost", storm::modelchecker::distributional::DistributionalCvarInterpretationSelection::Cost);
     expectParsedInterpretation("--distributional:interpretation reward",
                                storm::modelchecker::distributional::DistributionalCvarInterpretationSelection::Reward);
 }
@@ -295,12 +293,12 @@ TEST(SparseMdpDistributionalSettingsTest, ResolvesAutoCvarInterpretationFromOpti
         storm::settings::mutableManager().getModule(storm::settings::modules::DistributionalSettings::moduleName));
 
     settingsScope.apply("--distributional:objective cvar --distributional:interpretation auto");
-    auto minOptions = storm::modelchecker::distributional::DistributionalValueIterationOptions::fromSettings(
-        settings, storm::solver::OptimizationDirection::Minimize);
+    auto minOptions =
+        storm::modelchecker::distributional::DistributionalValueIterationOptions::fromSettings(settings, storm::solver::OptimizationDirection::Minimize);
     EXPECT_EQ(storm::modelchecker::distributional::DistributionalCvarInterpretation::Cost, minOptions.cvarInterpretation);
 
-    auto maxOptions = storm::modelchecker::distributional::DistributionalValueIterationOptions::fromSettings(
-        settings, storm::solver::OptimizationDirection::Maximize);
+    auto maxOptions =
+        storm::modelchecker::distributional::DistributionalValueIterationOptions::fromSettings(settings, storm::solver::OptimizationDirection::Maximize);
     EXPECT_EQ(storm::modelchecker::distributional::DistributionalCvarInterpretation::Reward, maxOptions.cvarInterpretation);
 }
 

@@ -38,7 +38,8 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
         case DistributionalValueIterationOptions::Objective::RiskNeutral: {
             STORM_LOG_THROW(storm::solver::minimize(options.optimizationDirection), storm::exceptions::NotSupportedException,
                             "Risk-neutral distributional value iteration currently supports only minimization objectives.");
-            auto preprocessorResult = DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, checkTask.isProduceSchedulersSet());
+            auto preprocessorResult =
+                DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, checkTask.isProduceSchedulersSet());
             SparseMdpRiskNeutralObjective<typename SparseModelType::ValueType> objective(preprocessorResult.targetAbsorbingTransitionMatrix,
                                                                                          preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
                                                                                          preprocessorResult.properStates, options);
@@ -47,7 +48,8 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
                                                                                      std::move(result.finiteDistributionStates));
         }
         case DistributionalValueIterationOptions::Objective::Cvar: {
-            auto preprocessorResult = DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, checkTask.isProduceSchedulersSet());
+            auto preprocessorResult =
+                DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, checkTask.isProduceSchedulersSet());
             SparseMdpCvarPreprocessor<typename SparseModelType::ValueType> cvarPreprocessor(
                 preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
                 preprocessorResult.properStates, preprocessorResult.initialState, options.budgetAtoms);
