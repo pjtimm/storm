@@ -52,7 +52,7 @@ std::unique_ptr<CheckResult> performDistributionalModelChecking(Environment cons
                 DistributionalReachabilityPreprocessor<SparseModelType>::preprocess(env, model, query, checkTask.isProduceSchedulersSet());
             SparseMdpCvarPreprocessor<typename SparseModelType::ValueType> cvarPreprocessor(
                 preprocessorResult.targetAbsorbingTransitionMatrix, preprocessorResult.stateActionRewards, preprocessorResult.targetStates,
-                preprocessorResult.properStates, preprocessorResult.initialState, options.budgetAtoms);
+                preprocessorResult.properStates, preprocessorResult.initialState);
             auto cvarPreprocessorResult = cvarPreprocessor.computeRewardBounds();
             SparseMdpCvarObjective<typename SparseModelType::ValueType> objective(preprocessorResult.targetAbsorbingTransitionMatrix,
                                                                                   preprocessorResult.stateActionRewards, preprocessorResult.targetStates,

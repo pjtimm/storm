@@ -25,7 +25,6 @@ struct DistributionalValueIterationOptions {
     uint64_t maximalIterations = 10000;
     Objective objective = Objective::RiskNeutral;
     double alpha = 0.05;
-    uint64_t budgetAtoms = 101;
     storm::solver::OptimizationDirection optimizationDirection = storm::solver::OptimizationDirection::Minimize;
     DistributionalCvarInterpretation cvarInterpretation = DistributionalCvarInterpretation::Cost;
 
@@ -44,7 +43,6 @@ struct DistributionalValueIterationOptions {
         options.maximalIterations = settings.getMaximalIterationCount();
         options.objective = convertObjective(settings.getObjective());
         options.alpha = settings.getAlpha();
-        options.budgetAtoms = settings.getNumberOfBudgetAtoms();
         options.optimizationDirection = optimizationDirection;
         options.cvarInterpretation = resolveDistributionalCvarInterpretation(settings.getCvarInterpretationSelection(), optimizationDirection);
         options.validate();
@@ -59,7 +57,6 @@ struct DistributionalValueIterationOptions {
                         "Distributional value iteration does not support quantile reward distributions yet.");
         STORM_LOG_THROW(alpha > 0.0 && alpha < 1.0, storm::exceptions::NotSupportedException,
                         "Distributional CVaR requires alpha to be in the interval (0, 1).");
-        STORM_LOG_THROW(budgetAtoms > 0, storm::exceptions::NotSupportedException, "Distributional CVaR requires a positive budget atom count.");
     }
 
    private:

@@ -12,13 +12,11 @@
 
 namespace {
 
-storm::modelchecker::distributional::DistributionalValueIterationOptions makeCvarOptions(uint64_t atoms = 128, uint64_t stepSize = 1,
-                                                                                         uint64_t budgetAtoms = 3) {
+storm::modelchecker::distributional::DistributionalValueIterationOptions makeCvarOptions(uint64_t atoms = 128, uint64_t stepSize = 1) {
     storm::modelchecker::distributional::DistributionalValueIterationOptions options{
         storm::modelchecker::distributional::RewardDistributionRepresentation::Categorical, atoms, stepSize, 1e-10, 10000};
     options.objective = storm::modelchecker::distributional::DistributionalValueIterationOptions::Objective::Cvar;
     options.alpha = 0.5;
-    options.budgetAtoms = budgetAtoms;
     return options;
 }
 
@@ -47,12 +45,12 @@ double computeBranchingCvarSelectedExpectedValue(storm::solver::OptimizationDire
     std::vector<double> rewards = {0.0, 0.0, 2.0, 30.0, 3.0, 3.0, 1.0, 0.0};
     storm::storage::BitVector targetStates(7, std::vector<uint64_t>{6});
     storm::storage::BitVector properStates(7, true);
-    auto options = makeCvarOptions(41, 1, 29);
+    auto options = makeCvarOptions(41, 1);
     options.alpha = 0.25;
     options.optimizationDirection = optimizationDirection;
     options.cvarInterpretation = interpretation;
 
-    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, options.budgetAtoms);
+    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0);
     auto preprocessorResult = preprocessor.computeRewardBounds();
     storm::modelchecker::distributional::SparseMdpCvarObjective<double> objective(matrix, rewards, targetStates, properStates, options, preprocessorResult);
     auto result = objective.computeCvarOptimalDistribution();
@@ -73,17 +71,17 @@ TEST(SparseMdpCvarObjectiveTest, ProductIndexRoundTrips) {
     std::vector<double> rewards = {0.0, 10.0, 0.0};
     storm::storage::BitVector targetStates(2, std::vector<uint64_t>{1});
     storm::storage::BitVector properStates(2, true);
-    auto options = makeCvarOptions(128, 1, 4);
+    auto options = makeCvarOptions(128, 1);
 
-    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, options.budgetAtoms);
+    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0);
     auto preprocessorResult = preprocessor.computeRewardBounds();
     EXPECT_DOUBLE_EQ(0.0, preprocessorResult.initialLowerRewardBound);
     EXPECT_DOUBLE_EQ(10.0, preprocessorResult.initialUpperRewardBound);
     storm::modelchecker::distributional::SparseMdpCvarObjective<double> objective(matrix, rewards, targetStates, properStates, options, preprocessorResult);
 
     EXPECT_EQ(2ul, objective.getStateCount());
-    EXPECT_EQ(4ul, objective.getBudgetCount());
-    EXPECT_EQ(8ul, objective.getProductStateCount());
+    EXPECT_EQ(11ul, objective.getBudgetCount());
+    EXPECT_EQ(22ul, objective.getProductStateCount());
     for (uint64_t state = 0; state < objective.getStateCount(); ++state) {
         for (uint64_t budgetIndex = 0; budgetIndex < objective.getBudgetCount(); ++budgetIndex) {
             uint64_t const productState = objective.getProductStateIndex(state, budgetIndex);
@@ -105,10 +103,10 @@ TEST(SparseMdpCvarObjectiveTest, ReturnsOnlyInitialStateDistributionFromTopologi
     std::vector<double> rewards = {0.0, 10.0, 0.0};
     storm::storage::BitVector targetStates(2, std::vector<uint64_t>{1});
     storm::storage::BitVector properStates(2, true);
-    auto options = makeCvarOptions(21, 1, 4);
+    auto options = makeCvarOptions(21, 1);
     options.maximalIterations = 0;
 
-    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, options.budgetAtoms);
+    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0);
     auto preprocessorResult = preprocessor.computeRewardBounds();
     storm::modelchecker::distributional::SparseMdpCvarObjective<double> objective(matrix, rewards, targetStates, properStates, options, preprocessorResult);
     auto result = objective.computeCvarOptimalDistribution();
@@ -133,9 +131,9 @@ TEST(SparseMdpCvarObjectiveTest, AlphaAffectsSelectedInitialBudget) {
     std::vector<double> rewards = {0.0, 4.0, 20.0, 0.0};
     storm::storage::BitVector targetStates(3, std::vector<uint64_t>{2});
     storm::storage::BitVector properStates(3, true);
-    auto options = makeCvarOptions(21, 1, 5);
+    auto options = makeCvarOptions(21, 1);
 
-    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0, options.budgetAtoms);
+    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0);
     auto preprocessorResult = preprocessor.computeRewardBounds();
     EXPECT_DOUBLE_EQ(0.0, preprocessorResult.initialLowerRewardBound);
     EXPECT_DOUBLE_EQ(20.0, preprocessorResult.initialUpperRewardBound);

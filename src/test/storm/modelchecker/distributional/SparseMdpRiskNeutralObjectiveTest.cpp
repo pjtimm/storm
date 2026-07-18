@@ -54,7 +54,7 @@ TEST(DistributionalValueIterationOptionsTest, ReadsDefaultObjectiveSettings) {
 
     EXPECT_EQ(storm::modelchecker::distributional::DistributionalValueIterationOptions::Objective::RiskNeutral, options.objective);
     EXPECT_DOUBLE_EQ(0.05, options.alpha);
-    EXPECT_EQ(101ull, options.budgetAtoms);
+    EXPECT_EQ(101ull, settings.getNumberOfBudgetAtoms());
 }
 
 TEST(DistributionalValueIterationOptionsTest, ValidatesCvarAlpha) {

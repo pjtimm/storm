@@ -58,15 +58,13 @@ class SparseMdpCvarPreprocessor {
     };
 
     SparseMdpCvarPreprocessor(storm::storage::SparseMatrix<ValueType> const& transitionMatrix, std::vector<ValueType> const& stateActionRewards,
-                              storm::storage::BitVector const& targetStates, storm::storage::BitVector const& properStates, uint64_t initialState,
-                              uint64_t requestedBudgetAtoms)
+                              storm::storage::BitVector const& targetStates, storm::storage::BitVector const& properStates, uint64_t initialState)
         : transitionMatrix(transitionMatrix),
           stateActionRewards(stateActionRewards),
           targetStates(targetStates),
           properStates(properStates),
           properNonTargetStates(properStates & ~targetStates),
-          initialState(initialState),
-          requestedBudgetAtoms(requestedBudgetAtoms) {
+          initialState(initialState) {
         STORM_LOG_THROW(transitionMatrix.getRowCount() == stateActionRewards.size(), storm::exceptions::InvalidArgumentException,
                         "CVaR preprocessing expects one normalized state-action reward per nondeterministic choice, but got "
                             << stateActionRewards.size() << " rewards for " << transitionMatrix.getRowCount() << " choices.");
@@ -79,8 +77,6 @@ class SparseMdpCvarPreprocessor {
         STORM_LOG_THROW(
             initialState < transitionMatrix.getRowGroupCount(), storm::exceptions::InvalidArgumentException,
             "CVaR preprocessing received initial state " << initialState << ", but the model has " << transitionMatrix.getRowGroupCount() << " states.");
-        STORM_LOG_THROW(requestedBudgetAtoms > 0, storm::exceptions::InvalidArgumentException,
-                        "CVaR preprocessing requires a positive requested budget atom count.");
         STORM_LOG_THROW(properStates.full(), storm::exceptions::NotSupportedException,
                         "CVaR preprocessing currently requires every state to be proper, i.e., every state must admit an almost-sure target-reaching "
                         "scheduler. The first CVaR bounded-support contract only computes finite support bounds for fully proper models, but got "
@@ -128,7 +124,7 @@ class SparseMdpCvarPreprocessor {
         result.budgetGrid = computeBudgetGrid(result.initialLowerRewardBound, result.initialUpperRewardBound);
         STORM_LOG_INFO("CVaR budget grid for initial state " << initialState << " spans [" << result.initialLowerRewardBound << ", "
                                                              << result.initialUpperRewardBound << "] with " << result.budgetGrid.size()
-                                                             << " atom(s), requested " << requestedBudgetAtoms << ".");
+                                                             << " exact integer threshold(s).");
 
         return result;
     }
@@ -139,21 +135,20 @@ class SparseMdpCvarPreprocessor {
                         "Expected integer CVaR reward bounds, but got [" << lowerBound << ", " << upperBound << "].");
         STORM_LOG_THROW(lowerBound <= upperBound, storm::exceptions::UnexpectedException,
                         "Expected ordered CVaR reward bounds, but got [" << lowerBound << ", " << upperBound << "].");
+        STORM_LOG_THROW(lowerBound >= storm::utility::zero<ValueType>(), storm::exceptions::UnexpectedException,
+                        "Expected non-negative CVaR reward bounds, but got [" << lowerBound << ", " << upperBound << "].");
 
-        if (lowerBound == upperBound) {
-            return {lowerBound};
+        uint64_t const lowerBoundAsInteger = storm::utility::convertNumber<uint64_t, ValueType>(lowerBound);
+        uint64_t const upperBoundAsInteger = storm::utility::convertNumber<uint64_t, ValueType>(upperBound);
+        STORM_LOG_THROW(lowerBoundAsInteger <= upperBoundAsInteger, storm::exceptions::UnexpectedException,
+                        "Expected ordered integer CVaR reward bounds, but got [" << lowerBoundAsInteger << ", " << upperBoundAsInteger << "].");
+
+        uint64_t const gridSize = upperBoundAsInteger - lowerBoundAsInteger + 1;
+        std::vector<ValueType> result;
+        result.reserve(gridSize);
+        for (uint64_t offset = 0; offset < gridSize; ++offset) {
+            result.push_back(storm::utility::convertNumber<ValueType, uint64_t>(lowerBoundAsInteger + offset));
         }
-
-        STORM_LOG_THROW(requestedBudgetAtoms > 1, storm::exceptions::NotSupportedException,
-                        "CVaR preprocessing can use a single budget atom only for singleton initial reward support, but the initial support is ["
-                            << lowerBound << ", " << upperBound << "].");
-
-        std::vector<ValueType> result(requestedBudgetAtoms);
-        ValueType const step = (upperBound - lowerBound) / storm::utility::convertNumber<ValueType>(requestedBudgetAtoms - 1);
-        for (uint64_t index = 0; index < requestedBudgetAtoms; ++index) {
-            result[index] = lowerBound + storm::utility::convertNumber<ValueType>(index) * step;
-        }
-        result.back() = upperBound;
 
         STORM_LOG_THROW(result.front() == lowerBound && result.back() == upperBound, storm::exceptions::UnexpectedException,
                         "Failed to construct a CVaR budget grid that includes the initial reward support endpoints.");
@@ -244,7 +239,6 @@ class SparseMdpCvarPreprocessor {
     storm::storage::BitVector properStates;
     storm::storage::BitVector properNonTargetStates;
     uint64_t initialState;
-    uint64_t requestedBudgetAtoms;
 };
 
 }  // namespace distributional

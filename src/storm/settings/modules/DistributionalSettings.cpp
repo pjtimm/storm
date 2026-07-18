@@ -73,7 +73,9 @@ DistributionalSettings::DistributionalSettings() : ModuleSettings(moduleName) {
                                          .build())
                         .build());
     this->addOption(
-        storm::settings::OptionBuilder(moduleName, budgetAtomsOptionName, true, "The number of budget atoms used for risk-sensitive distributional objectives.")
+        storm::settings::OptionBuilder(moduleName, budgetAtomsOptionName, true,
+                                       "The number of budget atoms used for risk-sensitive distributional objectives. CVaR uses an exact integer budget grid "
+                                       "and ignores this option.")
             .setIsAdvanced()
             .addArgument(storm::settings::ArgumentBuilder::createUnsignedIntegerArgument("count", "The number of budget atoms.")
                              .addValidatorUnsignedInteger(ArgumentValidatorFactory::createUnsignedGreaterValidator(0))

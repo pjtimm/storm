@@ -318,8 +318,8 @@ TEST(SparseMdpDistributionalModelCheckingTest, ComputesRiskNeutralResultFromPris
 
 TEST(SparseMdpDistributionalModelCheckingTest, ComputesCvarResultFromPrismStrings) {
     auto result = checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}min=? [ F \"target\" ];",
-                                                 "--distributional:objective cvar --distributional:alpha 0.25 --distributional:budgetatoms 29 "
-                                                 "--distributional:atoms 41 --distributional:stepsize 1");
+                                                 "--distributional:objective cvar --distributional:alpha 0.25 --distributional:atoms 41 "
+                                                 "--distributional:stepsize 1");
 
     ASSERT_TRUE(result->isExplicitDistributionalCheckResult());
     auto const& distributionalResult = result->asExplicitDistributionalCheckResult<double>();
@@ -332,10 +332,21 @@ TEST(SparseMdpDistributionalModelCheckingTest, ComputesCvarResultFromPrismString
     EXPECT_NE(std::string::npos, stream.str().find("{6: 0.5, 7: 0.5}"));
 }
 
+TEST(SparseMdpDistributionalModelCheckingTest, CvarIgnoresBudgetAtomsFromPrismStrings) {
+    std::string const cvarSettings = "--distributional:objective cvar --distributional:alpha 0.25 --distributional:atoms 41 --distributional:stepsize 1";
+
+    auto oneBudgetAtom = checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}min=? [ F \"target\" ];",
+                                                        cvarSettings + " --distributional:budgetatoms 1");
+    expectInitialDistribution(oneBudgetAtom, 6.5, "{6: 0.5, 7: 0.5}");
+
+    auto severalBudgetAtoms = checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}min=? [ F \"target\" ];",
+                                                             cvarSettings + " --distributional:budgetatoms 3");
+    expectInitialDistribution(severalBudgetAtoms, 6.5, "{6: 0.5, 7: 0.5}");
+}
+
 TEST(SparseMdpDistributionalModelCheckingTest, ComputesCvarResultsForExplicitInterpretationsFromPrismStrings) {
     std::string const cvarSettings =
-        "--distributional:objective cvar --distributional:alpha 0.25 --distributional:budgetatoms 29 "
-        "--distributional:atoms 41 --distributional:stepsize 1";
+        "--distributional:objective cvar --distributional:alpha 0.25 --distributional:atoms 41 --distributional:stepsize 1";
 
     auto maxRewardAuto = checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}max=? [ F \"target\" ];", cvarSettings);
     expectInitialDistribution(maxRewardAuto, 6.5, "{6: 0.5, 7: 0.5}");
@@ -365,7 +376,7 @@ label "target" = s=1;
 
     STORM_SILENT_EXPECT_THROW(checkDistributionalFromStrings(program, "R{\"cost\"}min=? [ F \"target\" ];",
                                                              "--distributional:objective cvar --distributional:alpha 0.25 "
-                                                             "--distributional:budgetatoms 5 --distributional:atoms 10 --distributional:stepsize 1"),
+                                                             "--distributional:atoms 10 --distributional:stepsize 1"),
                               storm::exceptions::NotSupportedException);
 }
 
@@ -386,6 +397,6 @@ label "target" = s=2;
 
     STORM_SILENT_EXPECT_THROW(checkDistributionalFromStrings(program, "R{\"cost\"}min=? [ F \"target\" ];",
                                                              "--distributional:objective cvar --distributional:alpha 0.25 "
-                                                             "--distributional:budgetatoms 5 --distributional:atoms 10 --distributional:stepsize 1"),
+                                                             "--distributional:atoms 10 --distributional:stepsize 1"),
                               storm::exceptions::NotSupportedException);
 }
