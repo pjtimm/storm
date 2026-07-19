@@ -345,8 +345,7 @@ TEST(SparseMdpDistributionalModelCheckingTest, CvarIgnoresBudgetAtomsFromPrismSt
 }
 
 TEST(SparseMdpDistributionalModelCheckingTest, ComputesCvarResultsForExplicitInterpretationsFromPrismStrings) {
-    std::string const cvarSettings =
-        "--distributional:objective cvar --distributional:alpha 0.25 --distributional:atoms 41 --distributional:stepsize 1";
+    std::string const cvarSettings = "--distributional:objective cvar --distributional:alpha 0.25 --distributional:atoms 41 --distributional:stepsize 1";
 
     auto maxRewardAuto = checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}max=? [ F \"target\" ];", cvarSettings);
     expectInitialDistribution(maxRewardAuto, 6.5, "{6: 0.5, 7: 0.5}");
