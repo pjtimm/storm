@@ -42,12 +42,13 @@ TEST(SparseMdpCvarPreprocessorTest, ComputesBoundsForProperDag) {
     EXPECT_DOUBLE_EQ(0.0, result.upperRewardBounds[3]);
     EXPECT_DOUBLE_EQ(4.0, result.initialLowerRewardBound);
     EXPECT_DOUBLE_EQ(6.0, result.initialUpperRewardBound);
-    ASSERT_EQ(3ul, result.getNumberOfBudgetAtoms());
-    EXPECT_DOUBLE_EQ(4.0, result.getBudgetValue(0));
-    EXPECT_DOUBLE_EQ(5.0, result.getBudgetValue(1));
-    EXPECT_DOUBLE_EQ(6.0, result.getBudgetValue(2));
-    EXPECT_EQ(0ul, result.getNextBudgetIndex(2, 2.0));
-    EXPECT_EQ(1ul, result.getNextBudgetIndex(2, 1.0));
+    ASSERT_EQ(7ul, result.getNumberOfBudgetAtoms());
+    EXPECT_EQ(4ul, result.getFirstInitialBudgetIndex());
+    EXPECT_DOUBLE_EQ(0.0, result.getBudgetValue(0));
+    EXPECT_DOUBLE_EQ(4.0, result.getBudgetValue(4));
+    EXPECT_DOUBLE_EQ(6.0, result.getBudgetValue(6));
+    EXPECT_EQ(4ul, result.getNextBudgetIndex(6, 2.0));
+    EXPECT_EQ(5ul, result.getNextBudgetIndex(6, 1.0));
 }
 
 TEST(SparseMdpCvarPreprocessorTest, BuildsExactIntegerBudgetGrid) {
@@ -75,7 +76,7 @@ TEST(SparseMdpCvarPreprocessorTest, BuildsExactIntegerBudgetGrid) {
     EXPECT_EQ(0ul, result.getNextBudgetIndex(1, 20.0));
 }
 
-TEST(SparseMdpCvarPreprocessorTest, AcceptsSingletonInitialSupportWithOneBudgetAtom) {
+TEST(SparseMdpCvarPreprocessorTest, BuildsResidualGridForSingletonInitialSupport) {
     storm::storage::SparseMatrixBuilder<double> builder(2, 2, 2, true, true, 2);
     builder.newRowGroup(0);
     builder.addNextValue(0, 1, 1.0);
@@ -90,10 +91,12 @@ TEST(SparseMdpCvarPreprocessorTest, AcceptsSingletonInitialSupportWithOneBudgetA
     storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0);
     auto result = preprocessor.computeRewardBounds();
 
-    ASSERT_EQ(1ul, result.getNumberOfBudgetAtoms());
-    EXPECT_DOUBLE_EQ(5.0, result.getBudgetValue(0));
-    EXPECT_EQ(0ul, result.getNextBudgetIndex(0, 0.0));
-    EXPECT_EQ(0ul, result.getNextBudgetIndex(0, 5.0));
+    ASSERT_EQ(6ul, result.getNumberOfBudgetAtoms());
+    EXPECT_EQ(5ul, result.getFirstInitialBudgetIndex());
+    EXPECT_DOUBLE_EQ(0.0, result.getBudgetValue(0));
+    EXPECT_DOUBLE_EQ(5.0, result.getBudgetValue(5));
+    EXPECT_EQ(5ul, result.getNextBudgetIndex(5, 0.0));
+    EXPECT_EQ(0ul, result.getNextBudgetIndex(5, 5.0));
 }
 
 TEST(SparseMdpCvarPreprocessorTest, RejectsProperNonTargetCycle) {

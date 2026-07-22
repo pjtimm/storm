@@ -161,7 +161,7 @@ typename SparseMdpCvarObjective<ValueType>::ReachableProductStates SparseMdpCvar
     uint64_t const initialState = preprocessorResult.initialState;
     STORM_LOG_THROW(properStates.get(initialState), storm::exceptions::InvalidArgumentException,
                     "Cannot run CVaR product value iteration because initial state " << initialState << " is not proper.");
-    for (uint64_t budgetIndex = 0; budgetIndex < budgetCount; ++budgetIndex) {
+    for (uint64_t budgetIndex = preprocessorResult.getFirstInitialBudgetIndex(); budgetIndex < budgetCount; ++budgetIndex) {
         addProductState(getProductStateIndex(initialState, budgetIndex));
     }
 
@@ -228,7 +228,7 @@ typename SparseMdpCvarObjective<ValueType>::Result SparseMdpCvarObjective<ValueT
 
     boost::optional<Distribution> selectedDistribution;
     ValueType bestCvarValue = storm::utility::zero<ValueType>();
-    for (uint64_t budgetIndex = 0; budgetIndex < budgetCount; ++budgetIndex) {
+    for (uint64_t budgetIndex = preprocessorResult.getFirstInitialBudgetIndex(); budgetIndex < budgetCount; ++budgetIndex) {
         uint64_t const productState = getProductStateIndex(initialState, budgetIndex);
         auto const productStateIndex = productStates.indices.find(productState);
         STORM_LOG_THROW(productStateIndex != productStates.indices.end(), storm::exceptions::UnexpectedException,

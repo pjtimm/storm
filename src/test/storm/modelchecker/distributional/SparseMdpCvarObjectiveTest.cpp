@@ -161,3 +161,43 @@ TEST(SparseMdpCvarObjectiveTest, SelectsDistributionAccordingToDirectionAndInter
     EXPECT_NEAR(6.5, computeBranchingCvarSelectedExpectedValue(OptimizationDirection::Maximize, DistributionalCvarInterpretation::Reward), 1e-12);
     EXPECT_NEAR(6.2, computeBranchingCvarSelectedExpectedValue(OptimizationDirection::Minimize, DistributionalCvarInterpretation::Reward), 1e-12);
 }
+
+TEST(SparseMdpCvarObjectiveTest, KeepsTightInitialThresholdIntervalWithoutClippingResidualBudgets) {
+    storm::storage::SparseMatrixBuilder<double> builder(5, 4, 6, true, true, 4);
+    builder.newRowGroup(0);
+    builder.addNextValue(0, 1, 1.0);
+    builder.newRowGroup(1);
+    builder.addNextValue(1, 3, 1.0);
+    builder.addNextValue(2, 2, 0.1);
+    builder.addNextValue(2, 3, 0.9);
+    builder.newRowGroup(3);
+    builder.addNextValue(3, 3, 1.0);
+    builder.newRowGroup(4);
+    builder.addNextValue(4, 3, 1.0);
+    auto matrix = builder.build();
+
+    std::vector<double> rewards = {3.0, 4.0, 2.0, 8.0, 0.0};
+    storm::storage::BitVector targetStates(4, std::vector<uint64_t>{3});
+    storm::storage::BitVector properStates(4, true);
+    auto options = makeCvarOptions(20, 1);
+
+    storm::modelchecker::distributional::SparseMdpCvarPreprocessor<double> preprocessor(matrix, rewards, targetStates, properStates, 0);
+    auto preprocessorResult = preprocessor.computeRewardBounds();
+    EXPECT_DOUBLE_EQ(5.0, preprocessorResult.initialLowerRewardBound);
+    EXPECT_DOUBLE_EQ(13.0, preprocessorResult.initialUpperRewardBound);
+    EXPECT_DOUBLE_EQ(0.0, preprocessorResult.getBudgetValue(0));
+    EXPECT_EQ(5ul, preprocessorResult.getFirstInitialBudgetIndex());
+    EXPECT_EQ(2ul, preprocessorResult.getNextBudgetIndex(preprocessorResult.getFirstInitialBudgetIndex(), 3.0));
+
+    storm::modelchecker::distributional::SparseMdpCvarObjective<double> objective(matrix, rewards, targetStates, properStates, options, preprocessorResult);
+    auto result = objective.computeCvarOptimalDistribution();
+
+    auto const& selectedDistribution = result.distributions.at(0);
+    auto const& masses = selectedDistribution.getCategoricalMasses();
+    ASSERT_EQ(20ul, masses.size());
+    for (uint64_t reward = 0; reward < masses.size(); ++reward) {
+        double const expectedMass = reward == 5 ? 0.9 : (reward == 13 ? 0.1 : 0.0);
+        EXPECT_NEAR(expectedMass, masses[reward], 1e-12);
+    }
+    EXPECT_NEAR(5.8, selectedDistribution.getProjectedExpectedValue(), 1e-12);
+}

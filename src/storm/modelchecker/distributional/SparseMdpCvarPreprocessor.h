@@ -42,6 +42,14 @@ class SparseMdpCvarPreprocessor {
             return budgetGrid[budgetIndex];
         }
 
+        uint64_t getFirstInitialBudgetIndex() const {
+            auto const firstInitialBudget = std::lower_bound(budgetGrid.begin(), budgetGrid.end(), initialLowerRewardBound);
+            STORM_LOG_THROW(firstInitialBudget != budgetGrid.end() && *firstInitialBudget == initialLowerRewardBound,
+                            storm::exceptions::UnexpectedException,
+                            "CVaR residual budget grid does not contain the lower endpoint of the initial threshold interval.");
+            return static_cast<uint64_t>(firstInitialBudget - budgetGrid.begin());
+        }
+
         uint64_t getNextBudgetIndex(uint64_t currentBudgetIndex, ValueType const& reward) const {
             STORM_LOG_THROW(currentBudgetIndex < budgetGrid.size(), storm::exceptions::InvalidArgumentException,
                             "CVaR current budget index " << currentBudgetIndex << " is out of range for a grid with " << budgetGrid.size() << " atoms.");
@@ -121,10 +129,11 @@ class SparseMdpCvarPreprocessor {
 
         result.initialLowerRewardBound = result.lowerRewardBounds[initialState];
         result.initialUpperRewardBound = result.upperRewardBounds[initialState];
-        result.budgetGrid = computeBudgetGrid(result.initialLowerRewardBound, result.initialUpperRewardBound);
-        STORM_LOG_INFO("CVaR budget grid for initial state " << initialState << " spans [" << result.initialLowerRewardBound << ", "
-                                                             << result.initialUpperRewardBound << "] with " << result.budgetGrid.size()
-                                                             << " exact integer threshold(s).");
+        result.budgetGrid = computeBudgetGrid(storm::utility::zero<ValueType>(), result.initialUpperRewardBound);
+        STORM_LOG_INFO("CVaR initial threshold interval for state " << initialState << " spans [" << result.initialLowerRewardBound << ", "
+                                                                    << result.initialUpperRewardBound << "]; the residual budget grid spans [0, "
+                                                                    << result.initialUpperRewardBound << "] with " << result.budgetGrid.size()
+                                                                    << " exact integer threshold(s).");
 
         return result;
     }
@@ -151,7 +160,7 @@ class SparseMdpCvarPreprocessor {
         }
 
         STORM_LOG_THROW(result.front() == lowerBound && result.back() == upperBound, storm::exceptions::UnexpectedException,
-                        "Failed to construct a CVaR budget grid that includes the initial reward support endpoints.");
+                        "Failed to construct a CVaR budget grid that includes the requested threshold endpoints.");
         return result;
     }
 
