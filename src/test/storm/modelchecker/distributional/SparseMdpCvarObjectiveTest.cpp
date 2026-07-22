@@ -3,6 +3,7 @@
 
 #include <vector>
 
+#include "storm/exceptions/NotSupportedException.h"
 #include "storm/modelchecker/distributional/DistributionalValueIterationOptions.h"
 #include "storm/modelchecker/distributional/SparseMdpCvarObjective.h"
 #include "storm/modelchecker/distributional/SparseMdpCvarPreprocessor.h"
@@ -152,14 +153,16 @@ TEST(SparseMdpCvarObjectiveTest, AlphaAffectsSelectedInitialBudget) {
     EXPECT_NEAR(2.0, largeTailResult.distributions.at(0).getProjectedExpectedValue(), 1e-12);
 }
 
-TEST(SparseMdpCvarObjectiveTest, SelectsDistributionAccordingToDirectionAndInterpretation) {
+TEST(SparseMdpCvarObjectiveTest, SupportsOnlyProvedDirectionAndInterpretationPairs) {
     using storm::modelchecker::distributional::DistributionalCvarInterpretation;
     using storm::solver::OptimizationDirection;
 
     EXPECT_NEAR(6.5, computeBranchingCvarSelectedExpectedValue(OptimizationDirection::Minimize, DistributionalCvarInterpretation::Cost), 1e-12);
-    EXPECT_NEAR(6.2, computeBranchingCvarSelectedExpectedValue(OptimizationDirection::Maximize, DistributionalCvarInterpretation::Cost), 1e-12);
     EXPECT_NEAR(6.5, computeBranchingCvarSelectedExpectedValue(OptimizationDirection::Maximize, DistributionalCvarInterpretation::Reward), 1e-12);
-    EXPECT_NEAR(6.2, computeBranchingCvarSelectedExpectedValue(OptimizationDirection::Minimize, DistributionalCvarInterpretation::Reward), 1e-12);
+    STORM_SILENT_EXPECT_THROW(computeBranchingCvarSelectedExpectedValue(OptimizationDirection::Maximize, DistributionalCvarInterpretation::Cost),
+                              storm::exceptions::NotSupportedException);
+    STORM_SILENT_EXPECT_THROW(computeBranchingCvarSelectedExpectedValue(OptimizationDirection::Minimize, DistributionalCvarInterpretation::Reward),
+                              storm::exceptions::NotSupportedException);
 }
 
 TEST(SparseMdpCvarObjectiveTest, KeepsTightInitialThresholdIntervalWithoutClippingResidualBudgets) {

@@ -27,7 +27,7 @@ SparseMdpRiskNeutralObjective<ValueType>::SparseMdpRiskNeutralObjective(storm::s
       properNonTargetStates(properStates & ~targetStates),
       options(options),
       viHelper(transitionMatrix, stateActionRewards, targetStates, properStates, options) {
-    // Intentionally left empty.
+    options.validate();
 }
 
 template<typename ValueType>

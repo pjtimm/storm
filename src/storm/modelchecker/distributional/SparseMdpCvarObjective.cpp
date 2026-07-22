@@ -30,6 +30,7 @@ SparseMdpCvarObjective<ValueType>::SparseMdpCvarObjective(storm::storage::Sparse
       preprocessorResult(preprocessorResult),
       stateCount(transitionMatrix.getRowGroupCount()),
       budgetCount(preprocessorResult.getNumberOfBudgetAtoms()) {
+    options.validate();
     validateDimensions();
 }
 

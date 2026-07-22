@@ -57,6 +57,16 @@ struct DistributionalValueIterationOptions {
                         "Distributional value iteration does not support quantile reward distributions yet.");
         STORM_LOG_THROW(alpha > 0.0 && alpha < 1.0, storm::exceptions::NotSupportedException,
                         "Distributional CVaR requires alpha to be in the interval (0, 1).");
+        if (objective == Objective::RiskNeutral) {
+            STORM_LOG_THROW(storm::solver::minimize(optimizationDirection), storm::exceptions::NotSupportedException,
+                            "Risk-neutral distributional value iteration currently supports only minimization objectives.");
+        } else {
+            bool const supportedCvarCombination =
+                (cvarInterpretation == DistributionalCvarInterpretation::Cost && storm::solver::minimize(optimizationDirection)) ||
+                (cvarInterpretation == DistributionalCvarInterpretation::Reward && storm::solver::maximize(optimizationDirection));
+            STORM_LOG_THROW(supportedCvarCombination, storm::exceptions::NotSupportedException,
+                            "Distributional CVaR currently supports only cost minimization and reward maximization.");
+        }
     }
 
    private:

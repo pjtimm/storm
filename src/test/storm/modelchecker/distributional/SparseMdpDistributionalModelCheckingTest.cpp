@@ -350,13 +350,12 @@ TEST(SparseMdpDistributionalModelCheckingTest, ComputesCvarResultsForExplicitInt
     auto maxRewardAuto = checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}max=? [ F \"target\" ];", cvarSettings);
     expectInitialDistribution(maxRewardAuto, 6.5, "{6: 0.5, 7: 0.5}");
 
-    auto maxCost = checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}max=? [ F \"target\" ];",
-                                                  cvarSettings + " --distributional:interpretation cost");
-    expectInitialDistribution(maxCost, 6.2, "{2: 0.85, 30: 0.15}");
-
-    auto minReward = checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}min=? [ F \"target\" ];",
-                                                    cvarSettings + " --distributional:interpretation reward");
-    expectInitialDistribution(minReward, 6.2, "{2: 0.85, 30: 0.15}");
+    STORM_SILENT_EXPECT_THROW(checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}max=? [ F \"target\" ];",
+                                                             cvarSettings + " --distributional:interpretation cost"),
+                              storm::exceptions::NotSupportedException);
+    STORM_SILENT_EXPECT_THROW(checkDistributionalFromStrings(distributionalChoiceModelString(), "R{\"cost\"}min=? [ F \"target\" ];",
+                                                             cvarSettings + " --distributional:interpretation reward"),
+                              storm::exceptions::NotSupportedException);
 }
 
 TEST(SparseMdpDistributionalModelCheckingTest, RejectsCvarCyclicProperSubsystemFromPrismString) {
