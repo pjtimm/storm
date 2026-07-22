@@ -44,8 +44,7 @@ class SparseMdpCvarPreprocessor {
 
         uint64_t getFirstInitialBudgetIndex() const {
             auto const firstInitialBudget = std::lower_bound(budgetGrid.begin(), budgetGrid.end(), initialLowerRewardBound);
-            STORM_LOG_THROW(firstInitialBudget != budgetGrid.end() && *firstInitialBudget == initialLowerRewardBound,
-                            storm::exceptions::UnexpectedException,
+            STORM_LOG_THROW(firstInitialBudget != budgetGrid.end() && *firstInitialBudget == initialLowerRewardBound, storm::exceptions::UnexpectedException,
                             "CVaR residual budget grid does not contain the lower endpoint of the initial threshold interval.");
             return static_cast<uint64_t>(firstInitialBudget - budgetGrid.begin());
         }
