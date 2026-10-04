@@ -2,6 +2,7 @@
 #include "test/storm_gtest.h"
 
 #include <optional>
+#include <unordered_map>
 
 #include "storm-parsers/api/model_descriptions.h"
 #include "storm-parsers/api/properties.h"
@@ -17,13 +18,17 @@
 #include "storm/modelchecker/CheckTask.h"
 #include "storm/modelchecker/cvar/CvarInterpretation.h"
 #include "storm/modelchecker/cvar/CvarMethod.h"
+#include "storm/modelchecker/cvar/CvarQueryInformation.h"
+#include "storm/modelchecker/cvar/ZeroWeightTransformation.h"
 #include "storm/modelchecker/cvar/helper/SspParetoFront.h"
 #include "storm/modelchecker/cvar/helper/SspParetoValueIterationOperator.h"
 #include "storm/modelchecker/cvar/preprocessing/SspCvarPreprocessingResult.h"
+#include "storm/modelchecker/cvar/preprocessing/SspCvarPreprocessor.h"
 #include "storm/modelchecker/prctl/SparseMdpPrctlModelChecker.h"
 #include "storm/modelchecker/results/ExplicitQuantitativeCheckResult.h"
 #include "storm/models/sparse/Mdp.h"
 #include "storm/models/sparse/StandardRewardModel.h"
+#include "storm/models/sparse/StateLabeling.h"
 #include "storm/utility/constants.h"
 
 namespace {
@@ -140,6 +145,27 @@ storm::modelchecker::cvar::preprocessing::SspCvarPreprocessingResult<double> bui
     return result;
 }
 
+storm::models::sparse::Mdp<double> buildZeroWeightSspMdp() {
+    storm::storage::SparseMatrixBuilder<double> builder(5, 4, 5, true, true, 4);
+    builder.newRowGroup(0);
+    builder.addNextValue(0, 1, 1.0);
+    builder.newRowGroup(1);
+    builder.addNextValue(1, 2, 1.0);
+    builder.newRowGroup(2);
+    builder.addNextValue(2, 3, 1.0);
+    builder.addNextValue(3, 3, 1.0);
+    builder.newRowGroup(4);
+    builder.addNextValue(4, 3, 1.0);
+
+    storm::models::sparse::StateLabeling labeling(4);
+    storm::storage::BitVector initialStates(4, false);
+    initialStates.set(0);
+    labeling.addLabel("init", initialStates);
+    std::unordered_map<std::string, storm::models::sparse::StandardRewardModel<double>> rewardModels;
+    rewardModels.emplace("cost", storm::models::sparse::StandardRewardModel<double>(std::nullopt, std::vector<double>{5.0, 0.0, 0.0, 7.0, 0.0}, std::nullopt));
+    return storm::models::sparse::Mdp<double>(builder.build(), std::move(labeling), std::move(rewardModels));
+}
+
 TEST(CvarSspParetoFrontTest, CanonicalizesDuplicateDominatedAndConvexRedundantPoints) {
     using ParetoFront = storm::modelchecker::cvar::SspParetoFront<double>;
 
@@ -221,6 +247,44 @@ TEST(CvarSspRewardParetoValueIterationOperatorTest, AppliesRewardShiftsAndUnions
     expectParetoFrontPoints(outputLayer[0], {{0.2, 0.5}, {0.5, 0.1}});
     expectParetoFrontPoints(outputLayer[1], {{1.0, 2.0}});
     expectParetoFrontPoints(outputLayer[2], {{1.0, 3.0}});
+}
+
+TEST(CvarSspPreprocessorTest, AppliesSelectedLocalZeroWeightElimination) {
+    auto const model = buildZeroWeightSspMdp();
+    storm::storage::BitVector targetStates(4, false);
+    targetStates.set(3);
+    storm::modelchecker::cvar::CvarQueryInformation queryInformation{storm::RationalNumber("1/2"), storm::solver::OptimizationDirection::Minimize,
+                                                                     storm::modelchecker::cvar::CvarInterpretation::Cost, std::string("cost"), nullptr};
+    storm::Environment env;
+
+    STORM_SILENT_EXPECT_THROW(storm::modelchecker::cvar::preprocessing::preprocessSspCvar(env, model, queryInformation, targetStates),
+                              storm::exceptions::InvalidPropertyException);
+    env.modelchecker().cvar().setZeroWeightTransformation(storm::modelchecker::cvar::ZeroWeightTransformation::GlobalCollapse);
+    STORM_SILENT_EXPECT_THROW(storm::modelchecker::cvar::preprocessing::preprocessSspCvar(env, model, queryInformation, targetStates),
+                              storm::exceptions::NotImplementedException);
+    env.modelchecker().cvar().setZeroWeightTransformation(storm::modelchecker::cvar::ZeroWeightTransformation::LocalElimination);
+    auto const result = storm::modelchecker::cvar::preprocessing::preprocessSspCvar(env, model, queryInformation, targetStates);
+
+    storm::storage::SparseMatrixBuilder<double> expectedMatrixBuilder(4, 3, 4, true, true, 3);
+    expectedMatrixBuilder.newRowGroup(0);
+    expectedMatrixBuilder.addNextValue(0, 1, 1.0);
+    expectedMatrixBuilder.addNextValue(1, 2, 1.0);
+    expectedMatrixBuilder.newRowGroup(2);
+    expectedMatrixBuilder.addNextValue(2, 1, 1.0);
+    expectedMatrixBuilder.newRowGroup(3);
+    expectedMatrixBuilder.addNextValue(3, 1, 1.0);
+    EXPECT_EQ(expectedMatrixBuilder.build(), result.transitionMatrix);
+    EXPECT_EQ((std::vector<double>{5.0, 5.0, 0.0, 7.0}), result.choiceCosts);
+    EXPECT_EQ(0ull, result.initialState);
+    EXPECT_EQ(7ull, result.maximalChoiceCost);
+    EXPECT_EQ(storm::storage::BitVector(3, true), result.reachableStates);
+    storm::storage::BitVector expectedTargets(3, false);
+    expectedTargets.set(1);
+    EXPECT_EQ(expectedTargets, result.targetStates);
+    ASSERT_EQ(3ull, result.expectedCostsToGoal.size());
+    EXPECT_NEAR(5.0, result.expectedCostsToGoal[0], 1e-10);
+    EXPECT_NEAR(0.0, result.expectedCostsToGoal[1], 1e-10);
+    EXPECT_NEAR(7.0, result.expectedCostsToGoal[2], 1e-10);
 }
 
 TEST_F(CvarQueryTest, SimpleMdp) {

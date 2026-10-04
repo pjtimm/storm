@@ -3,6 +3,7 @@
 
 #include "storm/modelchecker/cvar/CvarInterpretation.h"
 #include "storm/modelchecker/cvar/CvarMethod.h"
+#include "storm/modelchecker/cvar/ZeroWeightTransformation.h"
 #include "storm/settings/modules/ModuleSettings.h"
 
 namespace storm {
@@ -33,11 +34,19 @@ class CvarSettings : public ModuleSettings {
      */
     storm::modelchecker::cvar::CvarInterpretationSelection getInterpretationSelection() const;
 
+    /*!
+     * Retrieves the selected zero-weight transformation.
+     *
+     * @return The selected transformation.
+     */
+    storm::modelchecker::cvar::ZeroWeightTransformation getZeroWeightTransformation() const;
+
     static std::string const moduleName;
 
    private:
     static std::string const methodOptionName;
     static std::string const interpretationOptionName;
+    static std::string const zeroWeightTransformationOptionName;
 };
 
 }  // namespace modules

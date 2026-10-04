@@ -14,10 +14,12 @@ namespace modules {
 std::string const CvarSettings::moduleName = "cvar";
 std::string const CvarSettings::methodOptionName = "method";
 std::string const CvarSettings::interpretationOptionName = "interpretation";
+std::string const CvarSettings::zeroWeightTransformationOptionName = "zero-weight-transformation";
 
 CvarSettings::CvarSettings() : ModuleSettings(moduleName) {
     std::vector<std::string> methods = {"auto", "wr", "weighted-reachability", "ssp"};
     std::vector<std::string> interpretations = {"auto", "cost", "reward"};
+    std::vector<std::string> zeroWeightTransformations = {"disabled", "global-collapse", "local-elimination"};
     this->addOption(storm::settings::OptionBuilder(moduleName, methodOptionName, true, "The method to be used for CVaR model checking.")
                         .setIsAdvanced()
                         .addArgument(storm::settings::ArgumentBuilder::createStringArgument("name", "The name of the method to use.")
@@ -32,6 +34,14 @@ CvarSettings::CvarSettings() : ModuleSettings(moduleName) {
                                          .setDefaultValueString("auto")
                                          .build())
                         .build());
+    this->addOption(
+        storm::settings::OptionBuilder(moduleName, zeroWeightTransformationOptionName, true, "The transformation for zero-weight choices in CVaR SSP models.")
+            .setIsAdvanced()
+            .addArgument(storm::settings::ArgumentBuilder::createStringArgument("name", "The transformation to use.")
+                             .addValidatorString(ArgumentValidatorFactory::createMultipleChoiceValidator(zeroWeightTransformations))
+                             .setDefaultValueString("disabled")
+                             .build())
+            .build());
 }
 
 storm::modelchecker::cvar::CvarMethod CvarSettings::getCvarMethod() const {
@@ -56,6 +66,18 @@ storm::modelchecker::cvar::CvarInterpretationSelection CvarSettings::getInterpre
         return storm::modelchecker::cvar::CvarInterpretationSelection::Reward;
     }
     STORM_LOG_THROW(false, storm::exceptions::IllegalArgumentValueException, "Unknown CVaR interpretation '" << interpretationAsString << "'.");
+}
+
+storm::modelchecker::cvar::ZeroWeightTransformation CvarSettings::getZeroWeightTransformation() const {
+    std::string transformation = this->getOption(zeroWeightTransformationOptionName).getArgumentByName("name").getValueAsString();
+    if (transformation == "disabled") {
+        return storm::modelchecker::cvar::ZeroWeightTransformation::Disabled;
+    } else if (transformation == "global-collapse") {
+        return storm::modelchecker::cvar::ZeroWeightTransformation::GlobalCollapse;
+    } else if (transformation == "local-elimination") {
+        return storm::modelchecker::cvar::ZeroWeightTransformation::LocalElimination;
+    }
+    STORM_LOG_THROW(false, storm::exceptions::IllegalArgumentValueException, "Unknown zero-weight transformation '" << transformation << "'.");
 }
 
 }  // namespace modules

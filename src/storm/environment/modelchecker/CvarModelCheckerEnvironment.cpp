@@ -9,6 +9,7 @@ CvarModelCheckerEnvironment::CvarModelCheckerEnvironment() {
     auto const& cvarSettings = storm::settings::getModule<storm::settings::modules::CvarSettings>();
     method = cvarSettings.getCvarMethod();
     interpretationSelection = cvarSettings.getInterpretationSelection();
+    zeroWeightTransformation = cvarSettings.getZeroWeightTransformation();
 }
 
 CvarModelCheckerEnvironment::~CvarModelCheckerEnvironment() {
@@ -29,6 +30,14 @@ storm::modelchecker::cvar::CvarInterpretationSelection const& CvarModelCheckerEn
 
 void CvarModelCheckerEnvironment::setInterpretationSelection(storm::modelchecker::cvar::CvarInterpretationSelection value) {
     interpretationSelection = value;
+}
+
+storm::modelchecker::cvar::ZeroWeightTransformation const& CvarModelCheckerEnvironment::getZeroWeightTransformation() const {
+    return zeroWeightTransformation;
+}
+
+void CvarModelCheckerEnvironment::setZeroWeightTransformation(storm::modelchecker::cvar::ZeroWeightTransformation value) {
+    zeroWeightTransformation = value;
 }
 
 }  // namespace storm

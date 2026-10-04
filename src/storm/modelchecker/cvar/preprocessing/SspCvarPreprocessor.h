@@ -7,12 +7,14 @@
 #include "storm/exceptions/InvalidPropertyException.h"
 #include "storm/exceptions/NotImplementedException.h"
 #include "storm/modelchecker/cvar/CvarQueryInformation.h"
+#include "storm/modelchecker/cvar/ZeroWeightTransformation.h"
 #include "storm/modelchecker/cvar/preprocessing/SspCvarPreprocessingResult.h"
 #include "storm/modelchecker/prctl/helper/SparseMdpPrctlHelper.h"
 #include "storm/models/sparse/StandardRewardModel.h"
 #include "storm/solver/SolveGoal.h"
 #include "storm/storage/BitVector.h"
 #include "storm/storage/SparseMatrix.h"
+#include "storm/transformer/zeroWeight/LocalZeroWeightActionEliminator.h"
 #include "storm/utility/constants.h"
 #include "storm/utility/graph.h"
 #include "storm/utility/logging.h"
@@ -59,9 +61,11 @@ std::vector<typename SparseMdpModelType::ValueType> extractChoiceCostsForSsp(Spa
 
 template<typename ValueType>
 void validatePositiveChoiceCostsOutsideGoals(storm::storage::SparseMatrix<ValueType> const& transitionMatrix, storm::storage::BitVector const& targetStates,
-                                             std::vector<ValueType> const& choiceCosts, std::string const& valueName = "choice costs") {
+                                             std::vector<ValueType> const& choiceCosts, storm::storage::BitVector const& statesToCheck,
+                                             std::string const& valueName = "choice costs") {
+    STORM_LOG_ASSERT(statesToCheck.size() == transitionMatrix.getRowGroupCount(), "Expected one check bit per state.");
     ValueType const zero = storm::utility::zero<ValueType>();
-    for (uint64_t state = 0; state < transitionMatrix.getRowGroupCount(); ++state) {
+    for (uint64_t state : statesToCheck) {
         if (targetStates[state]) {
             continue;
         }
@@ -70,6 +74,13 @@ void validatePositiveChoiceCostsOutsideGoals(storm::storage::SparseMatrix<ValueT
                             "CVaR SSP preprocessing currently requires strictly positive " << valueName << " outside goal states.");
         }
     }
+}
+
+template<typename ValueType>
+void validatePositiveChoiceCostsOutsideGoals(storm::storage::SparseMatrix<ValueType> const& transitionMatrix, storm::storage::BitVector const& targetStates,
+                                             std::vector<ValueType> const& choiceCosts, std::string const& valueName = "choice costs") {
+    validatePositiveChoiceCostsOutsideGoals(transitionMatrix, targetStates, choiceCosts, storm::storage::BitVector(transitionMatrix.getRowGroupCount(), true),
+                                            valueName);
 }
 
 template<typename ValueType>
@@ -165,24 +176,42 @@ SspCvarPreprocessingResult<typename SparseMdpModelType::ValueType> preprocessSsp
     }
 
     auto transitionMatrix = model.getTransitionMatrix();
-    bool normalizedTargetStatesToAbsorbing = normalizeTargetStatesToAbsorbing(transitionMatrix, targetStates);
+    auto transformedTargetStates = targetStates;
+    auto transformedInitialStates = model.getInitialStates();
+    bool normalizedTargetStatesToAbsorbing = normalizeTargetStatesToAbsorbing(transitionMatrix, transformedTargetStates);
+    auto choiceCosts = extractChoiceCostsForSsp(model, rewardModel, transformedTargetStates);
+
+    auto const zeroWeightTransformation = env.modelchecker().cvar().getZeroWeightTransformation();
+    STORM_LOG_THROW(zeroWeightTransformation != ZeroWeightTransformation::GlobalCollapse, storm::exceptions::NotImplementedException,
+                    "Global zero-weight collapse for CVaR SSP preprocessing is not implemented yet.");
+    if (zeroWeightTransformation == ZeroWeightTransformation::LocalElimination) {
+        auto transformationResult = storm::transformer::LocalZeroWeightActionEliminator<ValueType>::eliminate(
+            transitionMatrix, choiceCosts, transformedTargetStates, transformedInitialStates);
+        transitionMatrix = std::move(transformationResult.transitionMatrix);
+        choiceCosts = std::move(transformationResult.actionWeights);
+        transformedTargetStates = std::move(transformationResult.targetStates);
+        transformedInitialStates = std::move(transformationResult.initialStates);
+    }
 
     auto backwardTransitions = transitionMatrix.transpose(true);
-    auto reachableStates = storm::utility::graph::getReachableStates(transitionMatrix, model.getInitialStates(),
+    auto reachableStates = storm::utility::graph::getReachableStates(transitionMatrix, transformedInitialStates,
                                                                      storm::storage::BitVector(transitionMatrix.getRowGroupCount(), true),
                                                                      storm::storage::BitVector(transitionMatrix.getRowGroupCount(), false));
     auto properStates = storm::utility::graph::performProb1E(transitionMatrix, transitionMatrix.getRowGroupIndices(), backwardTransitions,
-                                                             storm::storage::BitVector(transitionMatrix.getRowGroupCount(), true), targetStates);
+                                                             storm::storage::BitVector(transitionMatrix.getRowGroupCount(), true), transformedTargetStates);
     STORM_LOG_THROW(reachableStates.isSubsetOf(properStates), storm::exceptions::InvalidPropertyException,
                     "CVaR SSP preprocessing currently requires a proper policy from every reachable state.");
-    auto choiceCosts = extractChoiceCostsForSsp(model, rewardModel, targetStates);
-    validatePositiveChoiceCostsOutsideGoals(transitionMatrix, targetStates, choiceCosts);
-    uint64_t maximalChoiceCost = validateAndComputeMaximalChoiceCostOutsideGoals(transitionMatrix, targetStates, choiceCosts);
-    auto expectedCostsToGoal = computeExpectedCostsToGoal(env, transitionMatrix, backwardTransitions, targetStates, choiceCosts);
+    if (zeroWeightTransformation == ZeroWeightTransformation::Disabled) {
+        validatePositiveChoiceCostsOutsideGoals(transitionMatrix, transformedTargetStates, choiceCosts);
+    } else {
+        validatePositiveChoiceCostsOutsideGoals(transitionMatrix, transformedTargetStates, choiceCosts, reachableStates);
+    }
+    uint64_t maximalChoiceCost = validateAndComputeMaximalChoiceCostOutsideGoals(transitionMatrix, transformedTargetStates, choiceCosts);
+    auto expectedCostsToGoal = computeExpectedCostsToGoal(env, transitionMatrix, backwardTransitions, transformedTargetStates, choiceCosts);
 
     return {rewardModelName,
-            *model.getInitialStates().begin(),
-            targetStates,
+            *transformedInitialStates.begin(),
+            std::move(transformedTargetStates),
             std::move(reachableStates),
             liftedStateRewardsToChoiceCosts,
             normalizedTargetStatesToAbsorbing,
@@ -193,7 +222,7 @@ SspCvarPreprocessingResult<typename SparseMdpModelType::ValueType> preprocessSsp
 }
 
 template<typename SparseMdpModelType>
-SspCvarPreprocessingResult<typename SparseMdpModelType::ValueType> preprocessSspRewardCvar(Environment const&, SparseMdpModelType const& model,
+SspCvarPreprocessingResult<typename SparseMdpModelType::ValueType> preprocessSspRewardCvar(Environment const& env, SparseMdpModelType const& model,
                                                                                            CvarQueryInformation const& queryInformation,
                                                                                            storm::storage::BitVector const& targetStates) {
     using ValueType = typename SparseMdpModelType::ValueType;
@@ -211,6 +240,8 @@ SspCvarPreprocessingResult<typename SparseMdpModelType::ValueType> preprocessSsp
 
     STORM_LOG_THROW(!rewardModel.hasTransitionRewards(), storm::exceptions::NotImplementedException,
                     "CVaR SSP preprocessing does not support transition rewards.");
+    STORM_LOG_THROW(env.modelchecker().cvar().getZeroWeightTransformation() == ZeroWeightTransformation::Disabled, storm::exceptions::NotImplementedException,
+                    "CVaR SSP reward preprocessing does not support zero-weight transformations.");
 
     bool liftedStateRewardsToChoiceCosts = rewardModel.hasStateRewards() && !rewardModel.hasStateActionRewards();
     if (liftedStateRewardsToChoiceCosts) {
